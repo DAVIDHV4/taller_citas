@@ -1,0 +1,242 @@
+/* --- ESTILOS NUEVOS: FORMULARIO TIPO CONCESIONARIO --- */
+
+.layout-formulario {
+  background-color: #f4f7f6; /* Fondo gris muy suave */
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* Header Superior */
+.form-header-top {
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  margin-bottom: 10px;
+}
+
+.form-header-top h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.5rem;
+  border-left: 5px solid #d32f2f; /* Detalle rojo marca */
+  padding-left: 15px;
+}
+
+.btn-cambiar-taller {
+  background: transparent;
+  border: 1px solid #999;
+  color: #666;
+  padding: 8px 15px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+.btn-cambiar-taller:hover {
+  border-color: #333;
+  color: #333;
+}
+
+/* Contenedor Blanco Central */
+.contenedor-blanco {
+  background: white;
+  width: 95%;
+  max-width: 900px;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+
+/* --- STEPPER (Barra de pasos) --- */
+.stepper-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  padding: 0 20px;
+  position: relative;
+}
+
+.step-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2; /* Por encima de la línea */
+  position: relative;
+}
+
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #e0e0e0;
+  color: #666;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  margin-bottom: 8px;
+  border: 2px solid white;
+  transition: all 0.3s;
+}
+
+.step-item.active .step-circle {
+  background-color: #007bff; /* Azul activo */
+  color: white;
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.2);
+}
+
+.step-item p {
+  font-size: 0.85rem;
+  color: #999;
+  margin: 0;
+  font-weight: 600;
+}
+.step-item.active p { color: #007bff; }
+
+.linea-conector {
+  flex: 1;
+  height: 2px;
+  background-color: #e0e0e0;
+  margin: 0 10px;
+  margin-bottom: 25px; /* Ajuste para alinear con círculos */
+}
+
+/* --- FORMULARIO INTERNO --- */
+.titulo-seccion {
+  font-size: 1.2rem;
+  color: #444;
+  margin-bottom: 25px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+.grid-2-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-group label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.input-group input, .input-group select {
+  padding: 12px 15px;
+  border: 1px solid #ccc;
+  border-radius: 4px; /* Bordes cuadrados como la foto */
+  background-color: #f9f9f9;
+  font-size: 1rem;
+  transition: border 0.2s;
+}
+
+.input-group input:focus, .input-group select:focus {
+  border-color: #007bff;
+  background-color: white;
+  outline: none;
+}
+
+/* Botones de Navegación */
+.footer-buttons {
+  margin-top: 40px;
+  display: flex;
+}
+.footer-buttons.right { justify-content: flex-end; }
+.footer-buttons.spaced { justify-content: space-between; }
+
+.btn-primary {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-primary:disabled {
+  background-color: #a0cfff;
+  cursor: not-allowed;
+}
+.btn-primary:hover:not(:disabled) { background-color: #0056b3; }
+
+.btn-secondary {
+  background-color: transparent;
+  color: #666;
+  border: 1px solid #ccc;
+  padding: 12px 30px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.btn-secondary:hover { background-color: #f5f5f5; }
+
+.btn-confirmar-final {
+  background-color: #28a745; /* Verde éxito */
+  color: white;
+  border: none;
+  padding: 12px 40px;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+.btn-confirmar-final:hover { background-color: #218838; }
+
+/* Tarjeta Resumen */
+.resumen-card {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  padding: 20px;
+  border-radius: 8px;
+}
+.resumen-row {
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px dashed #ddd;
+  padding-bottom: 8px;
+}
+.resumen-row:last-child { border-bottom: none; }
+
+/* Animación simple */
+.paso-animado {
+  animation: fadeIn 0.4s ease-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsive para celular */
+@media (max-width: 768px) {
+  .grid-2-col { grid-template-columns: 1fr; }
+  .contenedor-blanco { padding: 20px; }
+  .stepper-container { padding: 0; }
+  .step-item p { display: none; } /* Ocultar texto pasos en móvil */
+}/* --- ESTILOS GLOBALES (RESET) --- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body, html, #root {
+  height: 100%;
+  width: 100%;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}

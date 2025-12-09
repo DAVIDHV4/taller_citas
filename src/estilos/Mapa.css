@@ -1,0 +1,96 @@
+/* --- ESTILOS EXCLUSIVOS DEL MAPA --- */
+
+/* Estructura Principal */
+.layout-principal {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Columna Izquierda (Lista) */
+.sidebar-lista {
+  width: 400px;
+  flex-shrink: 0;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 4px 0 15px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.sidebar-header {
+  background-color: #1a1a1a;
+  color: white;
+  padding: 25px;
+}
+
+.lista-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background-color: #f4f6f8;
+}
+
+/* Tarjetas */
+.tarjeta-sede {
+  background: white;
+  padding: 20px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+  transition: transform 0.2s;
+}
+
+.tarjeta-sede:hover {
+  transform: translateY(-3px);
+  border-color: #3498db;
+}
+
+.tarjeta-sede h3 { margin: 0 0 10px 0; color: #2c3e50; }
+.direccion { color: #666; font-size: 0.9rem; margin-bottom: 15px; }
+
+.acciones-sede { display: flex; gap: 10px; }
+
+/* Botones del Mapa */
+/* Botones del Mapa */
+.btn-ver-mapa {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid #ccc; /* Borde un poco más visible */
+  background: #f9f9f9;    /* Fondo gris claro */
+  color: #333;            /* <--- EL ARREGLO: Texto oscuro para que se lea */
+  cursor: pointer;
+  border-radius: 6px;
+  font-weight: 600;       /* Un poco más gordita la letra */
+  transition: background 0.2s;
+}
+
+/* Efecto al pasar el mouse por encima */
+.btn-ver-mapa:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+.btn-agendar {
+  flex: 1; padding: 10px; border: none; background: #3498db; color: white; cursor: pointer; border-radius: 6px; font-weight: 600;
+}
+.btn-agendar:hover { background: #2980b9; }
+
+.mapa-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background-color: #e0e0e0;
+}
+
+/* REGLA DE ORO PARA QUE EL MAPA SE VEA */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.btn-agendar-popup {
+  width: 100%; margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px; cursor: pointer;
+}
