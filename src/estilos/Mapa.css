@@ -94,3 +94,24 @@
 .btn-agendar-popup {
   width: 100%; margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px; cursor: pointer;
 }
+
+.btn-login-flotante {
+  position: absolute; /* Esto evita que empuje otros elementos */
+  top: 20px;
+  right: 20px;
+  z-index: 1000; /* Asegura que se vea por encima del mapa */
+  background-color: #1a1a1a; /* Color oscuro como tu barra lateral */
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 30px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3); /* Sombra para resaltar */
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.btn-login-flotante:hover {
+  transform: scale(1.05);
+  background-color: #000;
+}

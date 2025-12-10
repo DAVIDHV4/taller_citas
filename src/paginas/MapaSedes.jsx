@@ -89,12 +89,13 @@ function MapaSedes() {
 
   return (
     <div className="layout-principal">
+      
+      {/* 1. COLUMNA IZQUIERDA (INTACTA) */}
       <div className="sidebar-lista">
         <div className="sidebar-header">
           <h2>Red de Talleres</h2>
           <p>Selecciona una sede para comenzar</p>
           
-          {/* --- BUSCADOR --- */}
           <div className="buscador-container">
             <input 
                 type="text" 
@@ -126,12 +127,21 @@ function MapaSedes() {
         </div>
       </div>
 
+     
       <div className="mapa-container">
+        
+        <button 
+            className="btn-login-flotante" 
+            onClick={() => navigate('/login')}
+        >
+            Admin
+        </button>
+        {/* ----------------------- */}
+
         <MapContainer center={centroMapa} zoom={13} style={{height: '100%', width: '100%'}}>
           <TileLayer attribution='&copy; OpenStreetMap' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <VolarAlMapa destino={centroMapa} />
           
-          {/* SOLO PINTAMOS LAS SEDES FILTRADAS EN EL MAPA TAMBIÉN */}
           {sedesFiltradas.map((sede) => (
             <Marker 
               key={sede.$id} 
@@ -147,6 +157,7 @@ function MapaSedes() {
           ))}
         </MapContainer>
       </div>
+      
     </div>
   )
 }

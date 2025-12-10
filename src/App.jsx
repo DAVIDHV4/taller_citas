@@ -1,19 +1,20 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import MapaSedes from './paginas/MapaSedes'
 import FormularioReserva from './paginas/FormularioReserva'
+import Login from './paginas/Login'
+import Dashboard from './paginas/Dashboard'
 import './App.css'
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <Routes>
-        {/* Ruta principal: Muestra el Mapa */}
         <Route path="/" element={<MapaSedes />} />
-        
-        {/* Ruta secundaria: Muestra el Formulario */}
         <Route path="/agendar" element={<FormularioReserva />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin/dashboard" element={<Dashboard />} />
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 
