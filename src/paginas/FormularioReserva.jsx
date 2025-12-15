@@ -303,7 +303,7 @@ function FormularioReserva() {
                             <strong>{obtenerNombreSede(cita)}</strong>
                         </div>
                         <button type="button" className="btn-reprogramar-mini" onClick={() => activarModoEdicion(cita)}>
-                          Reprogramar Esta
+                          Reprogramar
                         </button>
                       </div>
                     ))}
