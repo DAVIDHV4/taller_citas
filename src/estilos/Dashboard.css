@@ -344,3 +344,111 @@ h2 { color: #333; margin-bottom: 20px; }
   from { transform: scale(0.9); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
 }
+
+/* --- NUEVOS ESTILOS PERSONAL --- */
+
+/* Cabecera con botón a la derecha */
+.header-users {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.btn-add-user {
+  background-color: #3498db;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+.btn-add-user:hover { background-color: #2980b9; }
+
+/* Lista de tarjetas de usuarios */
+.lista-usuarios-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.usuario-item {
+  background: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.usuario-item:hover {
+  transform: translateX(5px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  border-left: 4px solid #3498db;
+}
+
+.user-info { display: flex; flex-direction: column; }
+.user-email { font-weight: bold; color: #333; font-size: 1rem; }
+.user-role { font-size: 0.85rem; color: #777; margin-top: 2px; }
+
+/* Modal Formulario */
+.form-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  text-align: left;
+}
+.form-modal-body input, 
+.form-modal-body select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+/* --- ASIGNACIÓN MÚLTIPLE DE SEDES --- */
+.assignment-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: center;
+}
+
+.assignment-row select {
+  flex: 1; /* Ocupa el espacio disponible */
+}
+
+.btn-remove-row {
+  background: #e74c3c;
+  color: white;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.btn-add-sede {
+  background: transparent;
+  border: 2px dashed #3498db;
+  color: #3498db;
+  padding: 8px;
+  width: 100%;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  margin-top: 5px;
+  transition: all 0.2s;
+}
+.btn-add-sede:hover { background: #ebf5fb; }
