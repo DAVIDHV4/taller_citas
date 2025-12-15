@@ -1,30 +1,73 @@
-/* --- ESTILOS EXCLUSIVOS DEL MAPA --- */
+/* =========================================
+   ESTILOS BASE (ESCRITORIO / PC) - SIN CAMBIOS
+   ========================================= */
 
-/* Estructura Principal */
 .layout-principal {
   display: flex;
+  flex-direction: row;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: relative; /* Necesario para el posicionamiento absoluto en móvil */
 }
 
 /* Columna Izquierda (Lista) */
 .sidebar-lista {
   width: 400px;
+  height: 100%;
   flex-shrink: 0;
   background: white;
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 15px rgba(0,0,0,0.1);
-  z-index: 1000;
+  z-index: 1001;
+  position: relative;
 }
 
+/* Encabezado OSCURO */
 .sidebar-header {
-  background-color: #1a1a1a;
-  color: white;
-  padding: 25px;
+  background-color: #333;
+  color: #ffffff;
+  padding: 25px 20px;
+  text-align: center;
+  border-bottom: 4px solid #333;
+  /* Sombra para separar el header del contenido transparente en móvil */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
 }
 
+.sidebar-header h2 {
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  font-size: 1.4rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.sidebar-header p {
+  color: #cccccc;
+  font-size: 0.85rem;
+  font-weight: 300;
+  margin-bottom: 15px;
+}
+
+/* Buscador */
+.buscador-container { margin-top: 15px; }
+
+.input-buscador {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  background-color: #f0f2f5;
+}
+.input-buscador:focus { background-color: white; box-shadow: inset 0 0 0 2px #3498db; }
+
+/* Lista Scrollable */
 .lista-scroll {
   flex: 1;
   overflow-y: auto;
@@ -40,7 +83,7 @@
   border-radius: 10px;
   border: 1px solid #eee;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  transition: transform 0.2s;
+  transition: transform 0.2s, border-color 0.2s;
 }
 
 .tarjeta-sede:hover {
@@ -48,36 +91,26 @@
   border-color: #3498db;
 }
 
-.tarjeta-sede h3 { margin: 0 0 10px 0; color: #2c3e50; }
+.tarjeta-sede h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 1.1rem; }
 .direccion { color: #666; font-size: 0.9rem; margin-bottom: 15px; }
-
 .acciones-sede { display: flex; gap: 10px; }
 
-/* Botones del Mapa */
-/* Botones del Mapa */
+/* Botones */
 .btn-ver-mapa {
-  flex: 1;
-  padding: 10px;
-  border: 1px solid #ccc; /* Borde un poco más visible */
-  background: #f9f9f9;    /* Fondo gris claro */
-  color: #333;            /* <--- EL ARREGLO: Texto oscuro para que se lea */
-  cursor: pointer;
-  border-radius: 6px;
-  font-weight: 600;       /* Un poco más gordita la letra */
-  transition: background 0.2s;
+  flex: 1; padding: 10px; border: 1px solid #ccc; background: #f9f9f9; color: #333; cursor: pointer; border-radius: 6px; font-weight: 600; transition: background 0.2s;
 }
-
-/* Efecto al pasar el mouse por encima */
-.btn-ver-mapa:hover {
-  background: #e0e0e0;
-  border-color: #bbb;
-}
+.btn-ver-mapa:hover { background: #e0e0e0; border-color: #bbb; }
 
 .btn-agendar {
-  flex: 1; padding: 10px; border: none; background: #3498db; color: white; cursor: pointer; border-radius: 6px; font-weight: 600;
+  flex: 1; padding: 10px; border: none; background: #3498db; color: white; cursor: pointer; border-radius: 6px; font-weight: 600; transition: background 0.2s;
 }
 .btn-agendar:hover { background: #2980b9; }
 
+.btn-agendar-popup {
+  width: 100%; margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px; cursor: pointer; border-radius: 4px;
+}
+
+/* Mapa General */
 .mapa-container {
   flex: 1;
   height: 100%;
@@ -85,33 +118,87 @@
   background-color: #e0e0e0;
 }
 
-/* REGLA DE ORO PARA QUE EL MAPA SE VEA */
-.leaflet-container {
-  width: 100% !important;
-  height: 100% !important;
-}
+.leaflet-container { width: 100% !important; height: 100% !important; }
 
-.btn-agendar-popup {
-  width: 100%; margin-top: 10px; background: #27ae60; color: white; border: none; padding: 8px; cursor: pointer;
-}
-
+/* Botón Login Flotante */
 .btn-login-flotante {
-  position: absolute; /* Esto evita que empuje otros elementos */
-  top: 20px;
-  right: 20px;
-  z-index: 1000; /* Asegura que se vea por encima del mapa */
-  background-color: #1a1a1a; /* Color oscuro como tu barra lateral */
-  color: white;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 30px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.3); /* Sombra para resaltar */
-  transition: transform 0.2s, background-color 0.2s;
+  position: absolute; top: 20px; right: 20px; z-index: 1000; background-color: #1a1a1a; color: white; padding: 10px 20px; border: none; border-radius: 30px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s;
 }
+.btn-login-flotante:hover { transform: scale(1.05); background-color: #000; }
 
-.btn-login-flotante:hover {
-  transform: scale(1.05);
-  background-color: #000;
+/* =========================================
+   VISTA MÓVIL (CELULAR) - INTERFAZ FLOTANTE
+   ========================================= */
+@media (max-width: 768px) {
+  
+  /* 1. EL MAPA OCUPA TODA LA PANTALLA (FONDO) */
+  .mapa-container {
+    position: absolute; /* Se pega al fondo */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh; /* Altura completa */
+    z-index: 1; /* Nivel inferior */
+  }
+
+  /* 2. LA LISTA FLOTA ENCIMA */
+  .sidebar-lista {
+    position: absolute; /* Flotante */
+    top: 0;
+    left: 0;
+    width: 100%;
+    
+    /* Altura fija solicitada */
+    height: 290px; 
+    
+    /* FONDO TRANSPARENTE (La clave del efecto) */
+    background: transparent; 
+    
+    /* Quitamos sombras y bordes del contenedor principal */
+    box-shadow: none;
+    border-radius: 0; 
+    z-index: 2000; /* Nivel superior */
+  }
+
+  /* 3. EL ENCABEZADO SIGUE SIENDO SÓLIDO */
+  .sidebar-header {
+    background-color: #333; /* Oscuro */
+    /* Pequeña curva abajo para que se vea acabado */
+    border-bottom-left-radius: 15px; 
+    border-bottom-right-radius: 15px;
+    padding: 15px;
+    margin-bottom: 10px; /* Separación antes de las tarjetas */
+  }
+  
+  .sidebar-header h2 { font-size: 1.1rem; }
+  .sidebar-header p { display: none; }
+
+  /* 4. ÁREA DE SCROLL TRANSPARENTE */
+  .lista-scroll {
+     background: transparent; /* Transparente para ver el mapa detrás */
+     padding: 0 15px; /* Relleno lateral para las tarjetas */
+     padding-bottom: 20px;
+     box-shadow: none;
+  }
+  
+  /* 5. TARJETAS FLOTANTES (SÓLIDAS) */
+  .tarjeta-sede {
+     background: white; /* Tarjeta sólida */
+     opacity: 1;        /* Totalmente visible */
+     margin-bottom: 10px;
+     border-radius: 12px;
+     
+     /* Sombra fuerte para que resalte sobre el mapa */
+     box-shadow: 0 5px 15px rgba(0,0,0,0.3); 
+     border: none;
+  }
+
+  /* Ajustamos el botón Admin para que no lo tape la lista */
+  .btn-login-flotante {
+    top: auto;
+    bottom: 25px;
+    right: 15px;
+    padding: 8px 15px;
+    font-size: 0.8rem;
+  }
 }

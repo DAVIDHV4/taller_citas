@@ -18,11 +18,41 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
+// En src/paginas/MapaSedes.jsx
+
 function VolarAlMapa({ destino }) {
   const map = useMap();
+
   useEffect(() => {
-    if (destino) map.flyTo(destino, 15, { duration: 1.5 });
+    if (destino) {
+      // 1. Detectamos si estamos en celular (menor a 768px)
+      const isMobile = window.innerWidth <= 768;
+      const zoomLevel = 15; // El nivel de zoom que usas
+
+      if (isMobile) {
+        // 2. CÁLCULO MÁGICO PARA MÓVIL
+        // Convertimos la latitud/longitud a píxeles en el mapa
+        const point = map.project(destino, zoomLevel);
+        
+        // Restamos 145 píxeles al eje Y.
+        // ¿Por qué? La lista mide 290px. La mitad es 145px.
+        // Al restar, le decimos al mapa que mire "más al norte", 
+        // lo que hace que el marcador baje visualmente hacia el área libre.
+        point.y -= 145; 
+
+        // Convertimos los píxeles ajustados de nuevo a coordenadas
+        const newCenter = map.unproject(point, zoomLevel);
+        
+        // Volamos a este nuevo centro ajustado
+        map.flyTo(newCenter, zoomLevel, { duration: 1.5 });
+
+      } else {
+        // 3. En PC funciona normal (centrado perfecto)
+        map.flyTo(destino, zoomLevel, { duration: 1.5 });
+      }
+    }
   }, [destino, map]);
+
   return null;
 }
 
