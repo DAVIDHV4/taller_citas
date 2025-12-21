@@ -11,8 +11,7 @@ function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route path="/" element={<MapaSedes />} />
-        <Route path="/agendar" element={<FormularioReserva />} />
+        <Route path="/" element={<FormularioReserva />} />
         <Route path="/login" element={<Login />} />
         <Route path="/admin/dashboard" element={<Dashboard />} />
         <Route path="/trabajador/dashboard" element={<DashboardTrabajador />} />

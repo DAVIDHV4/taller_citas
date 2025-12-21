@@ -13,7 +13,9 @@ export const TALLER_CONFIG = {
     COLLECTION_SEDES: 'sedes',
     COLLECTION_SERVICIOS: 'servicios',
     COLLECTION_CITAS: 'citas',
-    COLLECTION_CUPOS: 'cupos', // <--- ¿TIENES ESTA?
+    COLLECTION_CUPOS: 'cupos', 
     COLLECTION_PERSONAL: 'personal', 
-    COLLECTION_ASIGNACIONES: 'asignaciones', // <--- ¿TIENES ESTA? (Pon el ID real si es diferente)
+    COLLECTION_ASIGNACIONES: 'asignaciones',
+    COLLECTION_TALLERES: 'talleres',
+    COLLECTION_RELACION_SEDE_SERVICIO: 'sedes_servicios',
 };

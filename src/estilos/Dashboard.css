@@ -222,3 +222,113 @@ h2 { color: #333; margin-bottom: 20px; }
   /* Requerimos lógica JS o un selector css astuto. */
   /* Solución simple: El botón está fijo. Si el sidebar tapa, el botón debe verse blanco */
 }
+
+/* =========================================
+   MEJORAS VISUALES DEL MODAL (NUEVO)
+   ========================================= */
+
+/* Títulos del modal más limpios */
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #2c3e50;
+  text-align: center;
+}
+.modal-header p {
+  text-align: center;
+  color: #7f8c8d;
+  margin-top: 5px;
+  margin-bottom: 20px;
+}
+
+/* Grupos de inputs (Label arriba, Input abajo) */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #34495e;
+  font-size: 0.9rem;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dfe6e9;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+  background-color: #fcfcfc;
+  box-sizing: border-box; /* Importante para que no se salga */
+}
+
+.form-input:focus {
+  border-color: #3498db;
+  outline: none;
+  background-color: white;
+}
+
+/* Tarjeta de Asignación (El bloque gris) */
+.assignment-card {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  position: relative;
+}
+
+.assignment-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+/* Botón de eliminar (X) pequeño y rojo */
+.btn-remove-mini {
+  background: #ff7675;
+  color: white;
+  border: none;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.8rem;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Botón "Agregar otra asignación" */
+.btn-add-dashed {
+  width: 100%;
+  padding: 12px;
+  background: white;
+  border: 2px dashed #bdc3c7;
+  color: #7f8c8d;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+}
+
+.btn-add-dashed:hover {
+  border-color: #3498db;
+  color: #3498db;
+  background: #ebf5fb;
+}
+
+/* Ajuste para el scroll de asignaciones */
+.assignments-container {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: 5px; /* Espacio para la sombra de los botones X */
+}

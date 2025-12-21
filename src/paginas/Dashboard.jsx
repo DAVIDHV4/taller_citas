@@ -13,17 +13,27 @@ function Dashboard() {
   const navigate = useNavigate();
   const sedeActual = location.state?.sede;
 
-  useEffect(() => {
-    if (!sedeActual) { navigate('/login'); }
-  }, [sedeActual, navigate]);
+  // Evitar pantalla blanca si recargan
+  if (!sedeActual) {
+    return (
+        <div style={{color: '#333', padding: '50px', textAlign: 'center'}}>
+            <h2>⚠️ Sesión no encontrada</h2>
+            <p>Por favor, inicia sesión nuevamente.</p>
+            <button onClick={() => navigate('/login')} style={{padding: '10px 20px', background: '#3498db', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>Ir al Login</button>
+        </div>
+    );
+  }
 
   // --- ESTADO MENÚ LATERAL ---
-  // Iniciamos abierto en PC (>768px), cerrado en móvil
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
 
   const [tabActual, setTabActual] = useState('resumen'); 
   const [usuarioNombre, setUsuarioNombre] = useState('Cargando...'); 
   const [misSedesAsignadas, setMisSedesAsignadas] = useState([]);
+
+  // --- NUEVOS ESTADOS ---
+  const [listaTalleres, setListaTalleres] = useState([]); 
+  const [listaSedesGlobal, setListaSedesGlobal] = useState([]); 
 
   // DATOS
   const [metrics, setMetrics] = useState({ citasHoy: 0, personalTotal: 0 });
@@ -39,7 +49,6 @@ function Dashboard() {
 
   // GESTIÓN PERSONAL
   const [listaPersonalGlobal, setListaPersonalGlobal] = useState([]); 
-  const [listaSedesSelector, setListaSedesSelector] = useState([]); 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSedeId, setFilterSedeId] = useState('');
 
@@ -53,6 +62,8 @@ function Dashboard() {
   const [empleadoSeleccionado, setEmpleadoSeleccionado] = useState(null);
   const [asignacionesEmpleado, setAsignacionesEmpleado] = useState([]);
   const [loadingAsignaciones, setLoadingAsignaciones] = useState(false);
+  
+  const [addTallerId, setAddTallerId] = useState('');
   const [addSedeId, setAddSedeId] = useState('');
   const [addSedeRol, setAddSedeRol] = useState('trabajador');
 
@@ -62,7 +73,7 @@ function Dashboard() {
 
   const notify = (msg, type = 'success') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
 
-  // CARGAS DE DATOS
+  // --- CARGAS DE DATOS ---
   useEffect(() => {
     const cargarDatosIniciales = async () => {
         try {
@@ -78,9 +89,28 @@ function Dashboard() {
                     } else { setUsuarioNombre(user.name); }
                 } catch(e) { setUsuarioNombre(user.name); }
             }
-            const resTodasSedes = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES);
-            setListaSedesSelector(resTodasSedes.documents);
-            if(resTodasSedes.documents.length > 0) setAddSedeId(resTodasSedes.documents[0].$id);
+
+            // 1. CARGAR TALLERES
+            try {
+                const idTalleres = TALLER_CONFIG.COLLECTION_TALLERES || 'talleres'; 
+                const resTalleres = await databases.listDocuments(
+                    TALLER_CONFIG.DATABASE_ID, 
+                    idTalleres, 
+                    [
+                        Query.limit(100),       
+                        Query.orderAsc('nombre') 
+                    ]
+                );
+                setListaTalleres(resTalleres.documents);
+            } catch (e) { 
+                console.error("Error cargando talleres:", e); 
+                notify("Error cargando lista de talleres", "error");
+            }
+
+            // 2. CARGAR SEDES (GLOBAL)
+            const resSedes = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, [Query.limit(100)]);
+            setListaSedesGlobal(resSedes.documents); 
+
             if (personalId) {
                 const resAsign = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, [ Query.equal('personal_id', personalId) ]);
                 const sedesPropias = await Promise.all(resAsign.documents.map(async (asig) => {
@@ -121,40 +151,191 @@ function Dashboard() {
             setListaCitas(res.documents.filter(c => new Date(c.fecha_hora).toLocaleDateString('en-CA') === fechaFiltro));
         } else if (tabActual === 'usuarios') {
              if (TALLER_CONFIG.COLLECTION_PERSONAL) {
-                 if (filterSedeId === '') {
-                     const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, [Query.limit(100)]);
-                     setListaPersonalGlobal(res.documents);
-                 } else {
-                     const resAsig = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, [Query.equal('sede_id', filterSedeId)]);
-                     const empleadosFiltrados = await Promise.all(resAsig.documents.map(async (a) => {
-                        try { return await databases.getDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, a.personal_id); } catch { return null; }
-                     }));
-                     setListaPersonalGlobal(empleadosFiltrados.filter(e => e !== null));
-                 }
+                 const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, [Query.limit(100)]);
+                 setListaPersonalGlobal(res.documents);
              }
         }
       } catch (error) { console.error("Error datos:", error); }
   };
   useEffect(() => { cargarDatos(); }, [tabActual, fechaFiltro, sedeActual, filterSedeId]);
 
+  // --- DESCARGAR SEDES ---
+  const descargarSedesCSV = async () => {
+    try {
+      const res = await databases.listDocuments(
+        TALLER_CONFIG.DATABASE_ID, 
+        TALLER_CONFIG.COLLECTION_SEDES, 
+        [Query.limit(100)]
+      );
+
+      if (res.documents.length === 0) return alert("No hay sedes para exportar");
+
+      const primerDoc = res.documents[0];
+      const columnasIgnoradas = ['$databaseId', '$collectionId', '$permissions', '$updatedAt'];
+      // Forzamos que el $id salga primero, luego el resto
+      const otrasKeys = Object.keys(primerDoc).filter(key => !columnasIgnoradas.includes(key) && key !== '$id');
+      const cabeceras = ['$id', ...otrasKeys];
+
+      const filas = res.documents.map(doc => {
+        return cabeceras.map(columna => {
+          let valor = doc[columna];
+          if (valor === null || valor === undefined) return "";
+          if (typeof valor === 'object') return `"${valor.$id || 'Objeto'}"`; 
+          return `"${String(valor).replace(/"/g, '""')}"`; 
+        }).join(",");
+      });
+
+      const csvContent = [cabeceras.join(","), ...filas].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "lista_sedes.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) { console.error(error); alert("Error: " + error.message); }
+  };
+
+  // --- DESCARGAR SERVICIOS ---
+  const descargarServiciosCSV = async () => {
+    try {
+      const res = await databases.listDocuments(
+        TALLER_CONFIG.DATABASE_ID, 
+        TALLER_CONFIG.COLLECTION_SERVICIOS || 'servicios', 
+        [Query.limit(100)]
+      );
+
+      if (res.documents.length === 0) return alert("No hay servicios para exportar");
+
+      const primerDoc = res.documents[0];
+      const columnasIgnoradas = ['$databaseId', '$collectionId', '$permissions', '$updatedAt'];
+      const otrasKeys = Object.keys(primerDoc).filter(key => !columnasIgnoradas.includes(key) && key !== '$id');
+      const cabeceras = ['$id', ...otrasKeys];
+
+      const filas = res.documents.map(doc => {
+        return cabeceras.map(columna => {
+          let valor = doc[columna];
+          if (valor === null || valor === undefined) return "";
+          if (typeof valor === 'object') return `"${valor.$id || 'Objeto'}"`;
+          return `"${String(valor).replace(/"/g, '""')}"`; 
+        }).join(",");
+      });
+
+      const csvContent = [cabeceras.join(","), ...filas].join("\n");
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "lista_servicios.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) { console.error(error); alert("Error: " + error.message); }
+  };
+
   // FUNCIONES AUXILIARES
   const cambiarSede = (id) => { const s = misSedesAsignadas.find(x => x.$id === id); if(s) navigate('/admin/dashboard', { state: { sede: s } }); };
   const cerrarSesion = async () => { try { await account.deleteSession('current'); } catch(e){} navigate('/login'); };
   
-  const abrirGestionEmpleado = async (e) => { setEmpleadoSeleccionado(e); setModalEditOpen(true); cargarAsignaciones(e.$id); };
-  const cargarAsignaciones = async (id) => { setLoadingAsignaciones(true); try { const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, [Query.equal('personal_id', id)]); const full = await Promise.all(res.documents.map(async a => { try{const i=await databases.getDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, a.sede_id); return {...a, nombreSede:i.nombre}}catch{return{...a, nombreSede:'Eliminada'}}})); setAsignacionesEmpleado(full); } catch(e){console.error(e)} finally{setLoadingAsignaciones(false)} };
+  // GESTION EMPLEADO
+  const abrirGestionEmpleado = async (e) => { 
+      setEmpleadoSeleccionado(e); setModalEditOpen(true); setAddTallerId(''); setAddSedeId(''); 
+      cargarAsignaciones(e.$id); 
+  };
+  const cargarAsignaciones = async (id) => { 
+      setLoadingAsignaciones(true); 
+      try { 
+          const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, [Query.equal('personal_id', id)]); 
+          const full = await Promise.all(res.documents.map(async a => { 
+              let nombreSede = 'Eliminada', nombreTaller = '-';
+              try{ const i=await databases.getDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, a.sede_id); nombreSede=i.nombre; }catch{}
+              try{ 
+                  const relacionTaller = a.talleres || a.taller_id;
+                  if(relacionTaller) { 
+                       if (typeof relacionTaller === 'object' && relacionTaller.nombre) {
+                           nombreTaller = relacionTaller.nombre;
+                       } else {
+                           const tID = (typeof relacionTaller === 'object') ? relacionTaller.$id : relacionTaller;
+                           const t=await databases.getDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_TALLERES || 'talleres', tID); 
+                           nombreTaller=t.nombre; 
+                       }
+                  } 
+              }catch{}
+              return {...a, nombreSede, nombreTaller}
+          })); 
+          setAsignacionesEmpleado(full); 
+      } catch(e){console.error(e)} finally{setLoadingAsignaciones(false)} 
+  };
   const guardarCambiosBasicos = async (e) => { e.preventDefault(); try { await databases.updateDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, empleadoSeleccionado.$id, { Nombre: empleadoSeleccionado.Nombre, email: empleadoSeleccionado.email }); notify("✅ Actualizado"); cargarDatos(); } catch(e){ notify(e.message,"error"); } };
   
-  const agregarNuevaSedeAlEmpleado = async () => { if(!addSedeId)return; if(asignacionesEmpleado.find(a=>a.sede_id===addSedeId)){notify("⚠️ Ya tiene esa sede","error");return;} try{ await databases.createDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, ID.unique(), {personal_id:empleadoSeleccionado.$id, sede_id:addSedeId, rol:addSedeRol}); notify("✅ Asignado"); cargarAsignaciones(empleadoSeleccionado.$id); }catch(e){notify(e.message,"error");} };
+  const agregarNuevaSedeAlEmpleado = async () => { 
+      if(!addTallerId || !addSedeId) return notify("⚠️ Faltan datos", "error");
+      try{ 
+          await databases.createDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, ID.unique(), {
+              personal_id:empleadoSeleccionado.$id, 
+              talleres: addTallerId, 
+              sede_id:addSedeId, 
+              rol:addSedeRol
+          }); 
+          notify("✅ Asignado"); 
+          cargarAsignaciones(empleadoSeleccionado.$id); 
+      } catch(e){
+          try {
+             await databases.createDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, ID.unique(), {
+              personal_id:empleadoSeleccionado.$id, 
+              taller_id: addTallerId, 
+              sede_id:addSedeId, 
+              rol:addSedeRol
+             });
+             notify("✅ Asignado");
+             cargarAsignaciones(empleadoSeleccionado.$id);
+          } catch(err2) { notify(e.message,"error"); }
+      } 
+  };
   const quitarSedeAlEmpleado = async (id) => { if(!window.confirm("¿Quitar acceso?"))return; try{ await databases.deleteDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, id); notify("🗑️ Quitado"); cargarAsignaciones(empleadoSeleccionado.$id); }catch(e){notify(e.message,"error");} };
   
-  const agregarFilaSede = () => setNewAssignments([...newAssignments, { sede: sedeActual.$id, rol: 'trabajador' }]);
+  // --- NUEVA LÓGICA DEL MODAL "CREAR EMPLEADO" ---
+  const agregarFilaSede = () => setNewAssignments([...newAssignments, { taller: '', sede: '', rol: 'trabajador' }]);
   const quitarFilaSede = (i) => { const c=[...newAssignments]; c.splice(i,1); setNewAssignments(c); };
-  const actualizarFila = (i,f,v) => { const c=[...newAssignments]; c[i][f]=v; setNewAssignments(c); };
+  const actualizarFila = (i,f,v) => { const c=[...newAssignments]; c[i][f]=v; if(f==='taller')c[i]['sede']=''; setNewAssignments(c); };
   
-  const crearNuevoEmpleado = async (e) => { e.preventDefault(); try { let pid=null; if(TALLER_CONFIG.COLLECTION_PERSONAL){ const chk=await databases.listDocuments(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_PERSONAL,[Query.equal('email',newUserEmail)]); if(chk.documents.length>0){pid=chk.documents[0].$id; notify("ℹ️ Usuario existente, asignando...");}else{const n=await databases.createDocument(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_PERSONAL,ID.unique(),{email:newUserEmail,Nombre:newUserName}); pid=n.$id;} let c=0; for(const a of newAssignments){ const ch=await databases.listDocuments(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_ASIGNACIONES,[Query.equal('personal_id',pid),Query.equal('sede_id',a.sede)]); if(ch.documents.length===0){ await databases.createDocument(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_ASIGNACIONES,ID.unique(),{personal_id:pid,sede_id:a.sede,rol:a.rol}); c++; } } notify(`✅ Listo. ${c} sedes asignadas.`); setModalUserOpen(false); setNewUserEmail(''); setNewUserName(''); cargarDatos(); } } catch(e){notify(e.message,"error");} };
+  const crearNuevoEmpleado = async (e) => { 
+      e.preventDefault(); 
+      try { 
+          let pid=null; 
+          const chk=await databases.listDocuments(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_PERSONAL,[Query.equal('email',newUserEmail)]); 
+          if(chk.documents.length>0){pid=chk.documents[0].$id; notify("ℹ️ Usuario existente, asignando...");}
+          else{const n=await databases.createDocument(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_PERSONAL,ID.unique(),{email:newUserEmail,Nombre:newUserName}); pid=n.$id;} 
+          
+          let c=0; 
+          for(const a of newAssignments){ 
+              if(a.taller && a.sede) {
+                  try {
+                      await databases.createDocument(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_ASIGNACIONES,ID.unique(),{
+                          personal_id:pid, 
+                          talleres: a.taller,
+                          sede_id:a.sede, 
+                          rol:a.rol
+                      }); 
+                      c++;
+                  } catch(err) {
+                      await databases.createDocument(TALLER_CONFIG.DATABASE_ID,TALLER_CONFIG.COLLECTION_ASIGNACIONES,ID.unique(),{
+                          personal_id:pid, 
+                          taller_id: a.taller,
+                          sede_id:a.sede, 
+                          rol:a.rol
+                      }); 
+                      c++;
+                  }
+              }
+          } 
+          notify(`✅ Listo. ${c} asignaciones.`); setModalUserOpen(false); setNewUserEmail(''); setNewUserName(''); cargarDatos(); 
+      } catch(e){notify(e.message,"error");} 
+  };
   
-  const abrirModalCreacion = () => { setNewUserName(''); setNewUserEmail(''); setNewAssignments([{ sede: sedeActual.$id, rol: 'trabajador' }]); setModalUserOpen(true); };
+  const abrirModalCreacion = () => { setNewUserName(''); setNewUserEmail(''); setNewAssignments([{ taller: '', sede: '', rol: 'trabajador' }]); setModalUserOpen(true); };
+  
   const crearCupo = async () => { if(!nuevoCupoHora) return; try { await databases.createDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_CUPOS, ID.unique(), { sede: sedeActual.$id, hora: nuevoCupoHora, cantidad: parseInt(nuevoCupoCantidad)}); notify("✅ Horario creado"); setNuevoCupoHora(''); cargarDatos(); } catch(e){ notify(e.message,"error"); } };
   const actualizarCupo = async (id, v) => { try { await databases.updateDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_CUPOS, id, {cantidad: parseInt(v)}); notify("✅ Actualizado"); cargarDatos(); } catch(e){ notify(e.message,"error"); } };
   const borrarCupo = async () => { if(itemToDelete) { await databases.deleteDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_CUPOS, itemToDelete); notify("🗑️ Eliminado"); setModalConfirmOpen(false); cargarDatos(); } };
@@ -164,32 +345,170 @@ function Dashboard() {
   const horasDisponibles = useMemo(() => BLOQUES_BASE.filter(h => !listaCuposDB.map(c=>c.hora).includes(h)), [listaCuposDB]);
   const chartDataConfig = { labels: Object.keys(chartDataRaw), datasets: [{ label: 'Vehículos', data: Object.values(chartDataRaw), backgroundColor: '#3498db', borderRadius: 4 }] };
 
-  if (!sedeActual) return null;
-
   return (
     <div className="dashboard-layout">
         {notification && <div className={`notification-toast ${notification.type}`}>{notification.type==='success'?'👍':'⚠️'} {notification.msg}</div>}
         {modalConfirmOpen && <div className="modal-overlay"><div className="modal-content"><h3>Confirmar</h3><p>¿Eliminar horario?</p><div className="modal-buttons"><button className="btn-modal-cancel" onClick={()=>setModalConfirmOpen(false)}>No</button><button className="btn-modal-confirm" onClick={borrarCupo}>Sí</button></div></div></div>}
         
-        {/* BOTÓN TIPO GEMINI (HAMBURGUESA) */}
-        {/* Está fuera del sidebar para estar fijo en la pantalla */}
-        <button 
-            className="menu-toggle-btn"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            title="Menú"
-        >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 12H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M3 6H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M3 18H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+        <button className={`menu-toggle-btn ${sidebarOpen ? 'text-white' : 'text-dark'}`} onClick={() => setSidebarOpen(!sidebarOpen)} title="Menú">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
 
-        {/* --- SIDEBAR CON SOPORTE PARA MINI BARRA --- */}
+        {/* MODAL CREAR USUARIO - SOLO DIRECCIÓN (O NOMBRE SI NO HAY DIRECCIÓN) */}
+        {modalUserOpen && (
+            <div className="modal-overlay">
+                <div className="modal-content" style={{maxWidth:'550px'}}>
+                    <div className="modal-header">
+                        <h3>Nuevo Empleado</h3>
+                        <p>Crea el perfil y asigna sus accesos</p>
+                    </div>
+                    
+                    <form onSubmit={crearNuevoEmpleado}>
+                        {/* DATOS BÁSICOS */}
+                        <div className="form-group">
+                            <label>Nombre Completo</label>
+                            <input className="form-input" value={newUserName} onChange={e=>setNewUserName(e.target.value)} required placeholder="Ej. Juan Pérez" />
+                        </div>
+                        <div className="form-group">
+                            <label>Correo Electrónico</label>
+                            <input className="form-input" type="email" value={newUserEmail} onChange={e=>setNewUserEmail(e.target.value)} required placeholder="juan@taller.com" />
+                        </div>
+
+                        {/* LISTA DE ASIGNACIONES */}
+                        <div style={{borderTop:'1px solid #eee', paddingTop:'15px', marginTop:'20px'}}>
+                            <label style={{display:'block', marginBottom:'10px', color:'#7f8c8d', fontSize:'0.9rem', fontWeight:'600'}}>ASIGNACIONES DE TALLER Y SEDE</label>
+                            
+                            <div className="assignments-container">
+                                {newAssignments.map((a, i) => {
+                                    // CORRECCIÓN: Filtrar buscando la columna 'talleres' o 'taller_id'
+                                    const sedesDelTaller = listaSedesGlobal.filter(s => {
+                                        const relacion = s.talleres || s.taller_id;
+                                        const tId = (relacion && typeof relacion === 'object') ? relacion.$id : relacion;
+                                        return tId === a.taller;
+                                    });
+
+                                    return (
+                                        <div key={i} className="assignment-card">
+                                            {newAssignments.length > 1 && (
+                                                <button type="button" className="btn-remove-mini" onClick={() => quitarFilaSede(i)}>×</button>
+                                            )}
+                                            
+                                            <div className="assignment-row">
+                                                <div style={{flex: 1}}>
+                                                    <select className="form-input" value={a.taller} onChange={e => actualizarFila(i, 'taller', e.target.value)}>
+                                                        <option value="">-- Selecciona Taller --</option>
+                                                        {listaTalleres.map(t => <option key={t.$id} value={t.$id}>{t.nombre}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div style={{width: '130px'}}>
+                                                    <select className="form-input" value={a.rol} onChange={e => actualizarFila(i, 'rol', e.target.value)}>
+                                                        <option value="trabajador">Trabajador</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <select className="form-input" value={a.sede} onChange={e => actualizarFila(i, 'sede', e.target.value)} disabled={!a.taller} style={{backgroundColor: !a.taller ? '#f0f0f0' : 'white'}}>
+                                                    <option value="">{a.taller ? '-- Selecciona Sede --' : '-- Primero elige Taller --'}</option>
+                                                    {sedesDelTaller.map(s => (
+                                                        <option key={s.$id} value={s.$id}>
+                                                            {/* CAMBIO AQUÍ: SOLO DIRECCIÓN */}
+                                                            {s.direccion ? s.direccion : s.nombre}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+
+                            <button type="button" className="btn-add-dashed" onClick={agregarFilaSede}>
+                                + Agregar otra asignación
+                            </button>
+                        </div>
+
+                        <div className="modal-buttons" style={{marginTop:'25px'}}>
+                            <button type="button" className="btn-modal-cancel" onClick={()=>setModalUserOpen(false)}>Cancelar</button>
+                            <button type="submit" className="btn-add-user" style={{justifyContent:'center', minWidth:'150px'}}>Guardar Todo</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )}
+
+        {/* MODAL EDITAR - SOLO DIRECCIÓN */}
+        {modalEditOpen && empleadoSeleccionado && (
+            <div className="modal-overlay">
+                <div className="modal-content" style={{maxWidth:'600px', textAlign:'left'}}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'15px'}}>
+                        <h3 style={{margin:0}}>Gestionar: {empleadoSeleccionado.Nombre}</h3>
+                        <button onClick={()=>setModalEditOpen(false)} style={{background:'none', border:'none', fontSize:'1.5rem', cursor:'pointer'}}>×</button>
+                    </div>
+                    <form onSubmit={guardarCambiosBasicos} style={{background:'#f9f9f9', padding:'15px', borderRadius:'8px', marginBottom:'20px'}}>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'15px'}}>
+                            <div><label style={{fontSize:'0.8rem', fontWeight:'bold'}}>Nombre</label><input className="form-input" value={empleadoSeleccionado.Nombre} onChange={e => setEmpleadoSeleccionado({...empleadoSeleccionado, Nombre: e.target.value})}/></div>
+                            <div><label style={{fontSize:'0.8rem', fontWeight:'bold'}}>Email</label><input className="form-input" value={empleadoSeleccionado.email} onChange={e => setEmpleadoSeleccionado({...empleadoSeleccionado, email: e.target.value})}/></div>
+                        </div>
+                        <button type="submit" style={{marginTop:'10px', padding:'8px 15px', background:'#2ecc71', color:'white', border:'none', borderRadius:'4px', cursor:'pointer'}}>Guardar Cambios</button>
+                    </form>
+                    
+                    <h4 style={{fontSize:'0.9rem', color:'#555', textTransform:'uppercase', borderBottom:'1px solid #eee', paddingBottom:'5px'}}>Accesos y Permisos</h4>
+                    <div style={{maxHeight:'200px', overflowY:'auto', marginBottom:'15px'}}>
+                        {asignacionesEmpleado.length === 0 ? <p style={{padding:'10px', color:'#999'}}>Sin accesos.</p> : (
+                            <table style={{width:'100%', borderCollapse:'collapse'}}>
+                                <thead><tr style={{background:'#f1f2f6', fontSize:'0.8rem', color:'#555'}}><th style={{padding:'8px', textAlign:'left'}}>Taller</th><th style={{padding:'8px', textAlign:'left'}}>Sede</th><th style={{padding:'8px'}}>Rol</th><th></th></tr></thead>
+                                <tbody>
+                                    {asignacionesEmpleado.map(asig => (
+                                        <tr key={asig.$id} style={{borderBottom:'1px solid #eee'}}>
+                                            <td style={{padding:'8px', fontSize:'0.9rem'}}>{asig.nombreTaller}</td>
+                                            <td style={{padding:'8px', fontSize:'0.9rem'}}>{asig.nombreSede}</td>
+                                            <td style={{padding:'8px', textAlign:'center'}}><span className="badge" style={{fontSize:'0.7rem'}}>{asig.rol}</span></td>
+                                            <td style={{padding:'8px', textAlign:'right'}}><button onClick={()=>quitarSedeAlEmpleado(asig.$id)} style={{background:'#e74c3c', color:'white', border:'none', padding:'4px 8px', borderRadius:'4px', cursor:'pointer', fontSize:'0.8rem'}}>Quitar</button></td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    <div style={{background:'#eef2f7', padding:'15px', borderRadius:'8px', border:'1px solid #dae1e7'}}>
+                        <h5 style={{margin:'0 0 10px 0'}}>Agregar Nuevo Acceso</h5>
+                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', marginBottom:'10px'}}>
+                            <select className="form-input" value={addTallerId} onChange={e=>{setAddTallerId(e.target.value); setAddSedeId('');}}>
+                                <option value="">-- Taller --</option>
+                                {listaTalleres.map(t => <option key={t.$id} value={t.$id}>{t.nombre}</option>)}
+                            </select>
+                            <select className="form-input" value={addSedeId} onChange={e=>setAddSedeId(e.target.value)} disabled={!addTallerId}>
+                                <option value="">-- Sede --</option>
+                                {listaSedesGlobal.filter(s => {
+                                    const relacion = s.talleres || s.taller_id;
+                                    const tId = (relacion && typeof relacion === 'object') ? relacion.$id : relacion;
+                                    return tId === addTallerId;
+                                }).map(s => (
+                                    <option key={s.$id} value={s.$id}>
+                                        {/* CAMBIO AQUÍ: SOLO DIRECCIÓN */}
+                                        {s.direccion ? s.direccion : s.nombre}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div style={{display:'flex', gap:'10px'}}>
+                            <select className="form-input" value={addSedeRol} onChange={e=>setAddSedeRol(e.target.value)} style={{width:'150px'}}>
+                                <option value="trabajador">Trabajador</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <button onClick={agregarNuevaSedeAlEmpleado} style={{flex:1, background:'#3498db', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontWeight:'bold'}}>+ Asignar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* SIDEBAR Y CONTENIDO */}
         <div className={`dashboard-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
-            
             <div className="sidebar-brand">
-                {/* Ocultamos el contenido del header cuando está cerrado */}
                 <div className={!sidebarOpen ? 'hidden-content' : ''}>
                     <h3>Hola, {usuarioNombre}</h3>
                     <select value={sedeActual.$id} onChange={(e) => cambiarSede(e.target.value)} style={{width: '100%', background: '#34495e', color: 'white', border: 'none', padding: '5px', borderRadius: '4px', marginTop: '5px', fontSize: '0.85rem', cursor: 'pointer'}}>
@@ -198,34 +517,16 @@ function Dashboard() {
                     </select>
                 </div>
             </div>
-
+           
             <nav className="sidebar-menu">
-                {/* Los spans de texto tienen la clase 'hidden-content' para desaparecer */}
-                <button title="Resumen" className={tabActual === 'resumen'?'active':''} onClick={()=>{setTabActual('resumen'); if(window.innerWidth<=768) setSidebarOpen(false);}}>
-                    <span>📊</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Resumen</span>
-                </button>
-                <button title="Citas" className={tabActual === 'citas'?'active':''} onClick={()=>{setTabActual('citas'); if(window.innerWidth<=768) setSidebarOpen(false);}}>
-                    <span>📅</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Citas</span>
-                </button>
-                <button title="Cupos" className={tabActual === 'cupos'?'active':''} onClick={()=>{setTabActual('cupos'); if(window.innerWidth<=768) setSidebarOpen(false);}}>
-                    <span>⚙️</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Cupos</span>
-                </button>
-                <button title="Personal" className={tabActual === 'usuarios'?'active':''} onClick={()=>{setTabActual('usuarios'); if(window.innerWidth<=768) setSidebarOpen(false);}}>
-                    <span>👥</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Personal</span>
-                </button>
+                <button title="Resumen" className={tabActual === 'resumen'?'active':''} onClick={()=>{setTabActual('resumen'); if(window.innerWidth<=768) setSidebarOpen(false);}}><span>📊</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Resumen</span></button>
+                <button title="Citas" className={tabActual === 'citas'?'active':''} onClick={()=>{setTabActual('citas'); if(window.innerWidth<=768) setSidebarOpen(false);}}><span>📅</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Citas</span></button>
+                <button title="Cupos" className={tabActual === 'cupos'?'active':''} onClick={()=>{setTabActual('cupos'); if(window.innerWidth<=768) setSidebarOpen(false);}}><span>⚙️</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Cupos</span></button>
+                <button title="Personal" className={tabActual === 'usuarios'?'active':''} onClick={()=>{setTabActual('usuarios'); if(window.innerWidth<=768) setSidebarOpen(false);}}><span>👥</span> <span className={!sidebarOpen ? 'hidden-content' : ''}>Personal</span></button>
             </nav>
-            
-            <div className={!sidebarOpen ? 'hidden-content' : ''}>
-                 <button className="btn-logout" onClick={cerrarSesion}>Salir</button>
-            </div>
+            <div className={!sidebarOpen ? 'hidden-content' : ''}><button className="btn-logout" onClick={cerrarSesion}>Salir</button></div>
         </div>
 
-        {/* OVERLAY PARA MÓVIL */}
-        {sidebarOpen && window.innerWidth <= 768 && (
-            <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} style={{position:'fixed', top:0, left:0, width:'100%', height:'100%', background:'rgba(0,0,0,0.5)', zIndex:999}}></div>
-        )}
-
-        {/* --- CONTENIDO PRINCIPAL --- */}
         <div className="dashboard-content">
             {tabActual === 'resumen' && (
                 <div className="vista-resumen">
@@ -256,11 +557,12 @@ function Dashboard() {
                         <div><h2>Personal</h2><p>Gestión global de empleados.</p></div>
                         <button className="btn-add-user" onClick={abrirModalCreacion}>+ Crear Empleado</button>
                     </div>
+                    {/* Barra de Filtro de Personal */}
                     <div style={{display:'flex', gap:'10px', marginBottom:'20px', background:'white', padding:'10px', borderRadius:'8px', border:'1px solid #eee'}}>
                         <input type="text" placeholder="🔍 Buscar por nombre o email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{flex:1, padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}} />
                         <select value={filterSedeId} onChange={e => setFilterSedeId(e.target.value)} style={{width:'200px', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}>
                             <option value="">📁 Todas las Sedes</option>
-                            {listaSedesSelector.map(s => <option key={s.$id} value={s.$id}>🏭 {s.nombre}</option>)}
+                            {listaSedesGlobal.map(s => <option key={s.$id} value={s.$id}>🏭 {s.nombre}</option>)}
                         </select>
                     </div>
                     <div className="lista-usuarios-grid">
@@ -273,86 +575,6 @@ function Dashboard() {
                         ))}
                     </div>
                 </div>
-            )}
-            
-            {/* MODALES DE CREACIÓN Y EDICIÓN (MANTENIDOS IGUAL) */}
-            {modalUserOpen && (
-            <div className="modal-overlay">
-                <div className="modal-content" style={{maxWidth:'500px'}}>
-                    <h3>Nuevo Empleado</h3>
-                    <p>Crea el usuario y asígnalo.</p>
-                    <form onSubmit={crearNuevoEmpleado} className="form-modal-body">
-                        <div style={{background:'#f9f9f9', padding:'10px', borderRadius:'6px', marginBottom:'15px'}}>
-                            <div><label>Nombre:</label><input value={newUserName} onChange={e=>setNewUserName(e.target.value)} required placeholder="Ej. Ana Gomez"/></div>
-                            <div><label>Email:</label><input type="email" value={newUserEmail} onChange={e=>setNewUserEmail(e.target.value)} required placeholder="ana@taller.com"/></div>
-                        </div>
-                        <label>Asignar Sedes:</label>
-                        <div style={{maxHeight:'200px', overflowY:'auto'}}>
-                            {newAssignments.map((a, i) => (
-                                <div key={i} style={{display:'flex', gap:'5px', marginBottom:'8px'}}>
-                                    <select value={a.sede} onChange={e => actualizarFila(i, 'sede', e.target.value)} style={{flex:1, padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}>{listaSedesSelector.map(s => <option key={s.$id} value={s.$id}>{s.nombre}</option>)}</select>
-                                    <select value={a.rol} onChange={e => actualizarFila(i, 'rol', e.target.value)} style={{width:'110px', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}><option value="trabajador">Trabajador</option><option value="admin">Admin</option></select>
-                                    {newAssignments.length > 1 && (<button type="button" onClick={() => quitarFilaSede(i)} style={{background:'#e74c3c', color:'white', border:'none', borderRadius:'4px', width:'30px', cursor:'pointer'}}>×</button>)}
-                                </div>
-                            ))}
-                        </div>
-                        <button type="button" onClick={agregarFilaSede} style={{width:'100%', background:'none', border:'1px dashed #3498db', color:'#3498db', padding:'5px', borderRadius:'4px', cursor:'pointer', marginTop:'5px'}}>+ Agregar otra sede</button>
-                        <div className="modal-buttons" style={{marginTop:'20px'}}>
-                            <button type="button" className="btn-modal-cancel" onClick={()=>setModalUserOpen(false)}>Cancelar</button>
-                            <button type="submit" className="btn-add-user" style={{justifyContent:'center'}}>Guardar Todo</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-            )}
-
-            {modalEditOpen && empleadoSeleccionado && (
-            <div className="modal-overlay">
-                <div className="modal-content" style={{maxWidth:'600px', textAlign:'left'}}>
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'15px'}}>
-                        <h3 style={{margin:0}}>Gestionar: {empleadoSeleccionado.Nombre}</h3>
-                        <button onClick={()=>setModalEditOpen(false)} style={{background:'none', border:'none', fontSize:'1.5rem', cursor:'pointer'}}>×</button>
-                    </div>
-                    <form onSubmit={guardarCambiosBasicos} style={{background:'#f4f6f8', padding:'15px', borderRadius:'8px', marginBottom:'20px'}}>
-                        <h4 style={{marginTop:0, fontSize:'0.9rem', color:'#555', textTransform:'uppercase'}}>Datos Personales</h4>
-                        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-                            <div><label style={{fontSize:'0.8rem'}}>Nombre</label><input value={empleadoSeleccionado.Nombre} onChange={e => setEmpleadoSeleccionado({...empleadoSeleccionado, Nombre: e.target.value})} style={{width:'100%', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}/></div>
-                            <div><label style={{fontSize:'0.8rem'}}>Email</label><input value={empleadoSeleccionado.email} onChange={e => setEmpleadoSeleccionado({...empleadoSeleccionado, email: e.target.value})} style={{width:'100%', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}/></div>
-                        </div>
-                        <button type="submit" style={{marginTop:'10px', padding:'6px 12px', background:'#2ecc71', color:'white', border:'none', borderRadius:'4px', cursor:'pointer'}}>Guardar Cambios</button>
-                    </form>
-                    <div>
-                        <h4 style={{fontSize:'0.9rem', color:'#555', textTransform:'uppercase'}}>Acceso a Sedes</h4>
-                        <div style={{maxHeight:'150px', overflowY:'auto', border:'1px solid #eee', borderRadius:'4px', marginBottom:'10px'}}>
-                            {loadingAsignaciones ? <p style={{padding:'10px'}}>Cargando...</p> : (asignacionesEmpleado.length === 0 ? <p style={{padding:'10px', color:'#999'}}>Sin sedes.</p> : (
-                                <table style={{width:'100%', borderCollapse:'collapse'}}>
-                                    <thead><tr style={{background:'#f9f9f9', fontSize:'0.8rem'}}><th style={{padding:'8px', textAlign:'left'}}>Sede</th><th style={{padding:'8px', textAlign:'left'}}>Rol</th><th></th></tr></thead>
-                                    <tbody>
-                                        {asignacionesEmpleado.map(asig => (
-                                            <tr key={asig.$id} style={{borderBottom:'1px solid #eee'}}>
-                                                <td style={{padding:'8px'}}>{asig.nombreSede}</td>
-                                                <td style={{padding:'8px'}}><span className="badge" style={{fontSize:'0.7rem', padding:'2px 6px'}}>{asig.rol}</span></td>
-                                                <td style={{padding:'8px', textAlign:'right'}}><button onClick={()=>quitarSedeAlEmpleado(asig.$id)} style={{background:'#e74c3c', color:'white', border:'none', padding:'4px 8px', borderRadius:'4px', cursor:'pointer', fontSize:'0.8rem'}}>Quitar</button></td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ))}
-                        </div>
-                        <div style={{display:'flex', gap:'10px', alignItems:'end', background:'#eef2f7', padding:'10px', borderRadius:'6px'}}>
-                            <div style={{flex:1}}>
-                                <label style={{fontSize:'0.7rem'}}>Asignar Sede:</label>
-                                <select value={addSedeId} onChange={e=>setAddSedeId(e.target.value)} style={{width:'100%', padding:'6px'}}>{listaSedesSelector.map(s => <option key={s.$id} value={s.$id}>{s.nombre}</option>)}</select>
-                            </div>
-                            <div style={{width:'120px'}}>
-                                <label style={{fontSize:'0.7rem'}}>Rol:</label>
-                                <select value={addSedeRol} onChange={e=>setAddSedeRol(e.target.value)} style={{width:'100%', padding:'6px'}}><option value="trabajador">Trabajador</option><option value="admin">Admin</option></select>
-                            </div>
-                            <button onClick={agregarNuevaSedeAlEmpleado} style={{background:'#3498db', color:'white', border:'none', padding:'8px 15px', borderRadius:'4px', cursor:'pointer'}}>+ Asignar</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
             )}
         </div>
     </div>
