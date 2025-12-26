@@ -20,6 +20,7 @@ function Dashboard() {
   });
 
   // --- ESTADOS ---
+  const [loadingGlobal, setLoadingGlobal] = useState(true); // <--- NUEVO: Para evitar el descuadre inicial
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [tabActual, setTabActual] = useState('resumen'); 
   const [usuarioNombre, setUsuarioNombre] = useState('Cargando...'); 
@@ -70,20 +71,13 @@ function Dashboard() {
   const notify = (msg, type = 'success') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const BLOQUES_BASE = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
-  if (!sedeActual) {
-    return (
-        <div style={{color: '#333', padding: '50px', textAlign: 'center'}}>
-            <h2>⚠️ Sesión no encontrada</h2>
-            <p>Por favor, inicia sesión nuevamente.</p>
-            <button onClick={() => navigate('/login')} style={{padding: '10px 20px', background: '#3498db', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>Ir al Login</button>
-        </div>
-    );
-  }
-
-  // --- CARGAS DE DATOS ---
+  // --- CARGAS DE DATOS INICIALES ---
   useEffect(() => {
     const init = async () => {
         try {
+            // Verificar sesión primero
+            if (!sedeActual) { setLoadingGlobal(false); return; }
+
             const user = await account.get();
             let pid = null;
             try {
@@ -91,21 +85,30 @@ function Dashboard() {
                 if(res.documents.length>0) { setUsuarioNombre(res.documents[0].Nombre); pid=res.documents[0].$id; } else { setUsuarioNombre(user.name); }
             } catch { setUsuarioNombre(user.name); }
 
-            try { const rt = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_TALLERES || 'talleres', [Query.limit(100), Query.orderAsc('nombre')]); setListaTalleres(rt.documents); } catch(e){}
-            const rs = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, [Query.limit(100)]); setListaSedesGlobal(rs.documents);
+            // Cargas paralelas para velocidad
+            const [rt, rs, globalServ] = await Promise.all([
+                databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_TALLERES || 'talleres', [Query.limit(100), Query.orderAsc('nombre')]).catch(()=>({documents:[]})),
+                databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, [Query.limit(100)]).catch(()=>({documents:[]})),
+                databases.listDocuments(TALLER_CONFIG.DATABASE_ID, 'servicios', [Query.limit(100), Query.orderAsc('nombre')]).catch(()=>({documents:[]}))
+            ]);
 
-            try {
-                const globalServ = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, 'servicios', [Query.limit(100), Query.orderAsc('nombre')]);
-                setCatServiciosGlobal(globalServ.documents);
-            } catch(e) { console.error("Error cargando catálogo global de servicios"); }
+            setListaTalleres(rt.documents);
+            setListaSedesGlobal(rs.documents);
+            setCatServiciosGlobal(globalServ.documents);
 
             if(pid){
                 const ra = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_ASIGNACIONES, [Query.equal('personal_id', pid)]);
                 const sp = await Promise.all(ra.documents.map(async a => { try{return await databases.getDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, a.sede_id)}catch{return null}}));
                 setMisSedesAsignadas(sp.filter(s=>s!==null));
             }
-        } catch(e){console.error(e)}
-    }; init();
+        } catch(e){
+            console.error(e);
+        } finally {
+            // AQUÍ ESTÁ LA MAGIA: Soltamos el loading solo cuando todo está listo
+            setLoadingGlobal(false);
+        }
+    }; 
+    init();
   }, []);
 
   useEffect(() => {
@@ -150,42 +153,22 @@ function Dashboard() {
             setListaCuposDB(res.documents.sort((a,b) => a.hora.localeCompare(b.hora)));
 
         } else if (tabActual === 'citas') {
-             // 1. Traer citas crudas
-             const res = await databases.listDocuments(
-                 TALLER_CONFIG.DATABASE_ID, 
-                 TALLER_CONFIG.COLLECTION_CITAS, 
-                 [ Query.equal('sede', sedeActual.$id), Query.limit(100), Query.orderDesc('fecha_hora') ]
-             );
-             
-             // 2. Filtrar por fecha
-             const citasFiltradas = res.documents.filter(c => new Date(c.fecha_hora).toLocaleDateString('en-CA') === fechaFiltro);
+             const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_CITAS, [ Query.equal('sede', sedeActual.$id), Query.limit(100), Query.orderDesc('fecha_hora') ]);
+            const citasFiltradas = res.documents.filter(c => new Date(c.fecha_hora).toLocaleDateString('en-CA') === fechaFiltro);
 
-             // 3. ENRIQUECER DATOS (Concatenar Nombre y Buscar Servicio)
              const citasCompletas = await Promise.all(citasFiltradas.map(async (c) => {
-                 // A. Concatenar Cliente
                  const nombreCompleto = `${c.nombre || ''} ${c.apellido || ''}`.trim() || 'Cliente sin nombre';
-
-                 // B. Buscar nombre del servicio (si tenemos ID)
                  let nombreServicio = '-';
                  if (c.servicio) {
-                     // Primero intentamos buscar en el catálogo global que ya tenemos en memoria (más rápido)
                      const enCache = catServiciosGlobal.find(s => s.$id === c.servicio);
-                     if (enCache) {
-                         nombreServicio = enCache.nombre;
-                     } else {
-                         // Si no está en caché, consultamos a la BD
-                         try {
-                             const docServ = await databases.getDocument(TALLER_CONFIG.DATABASE_ID, 'servicios', c.servicio);
-                             nombreServicio = docServ.nombre;
-                         } catch (e) {
-                             nombreServicio = '(No encontrado)';
-                         }
+                     if (enCache) { nombreServicio = enCache.nombre; } 
+                     else {
+                         try { const docServ = await databases.getDocument(TALLER_CONFIG.DATABASE_ID, 'servicios', c.servicio); nombreServicio = docServ.nombre; } 
+                         catch (e) { nombreServicio = '(No encontrado)'; }
                      }
                  }
-
                  return { ...c, clienteNombre: nombreCompleto, servicioNombre: nombreServicio };
              }));
-
              setListaCitas(citasCompletas);
 
         } else if (tabActual === 'usuarios') {
@@ -205,9 +188,7 @@ function Dashboard() {
                              const uniqueIds = [...new Set(userIds)];
                              const resUsers = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, [ Query.equal('$id', uniqueIds) ]);
                              setListaPersonalGlobal(resUsers.documents);
-                         } else {
-                             setListaPersonalGlobal([]); 
-                         }
+                         } else { setListaPersonalGlobal([]); }
                      } catch (e) { console.error("Error filtrando usuarios:", e); }
                  } else {
                      const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_PERSONAL, [Query.limit(100)]);
@@ -217,36 +198,24 @@ function Dashboard() {
 
         } else if (tabActual === 'servicios') {
              try {
-                 const res = await databases.listDocuments(
-                     TALLER_CONFIG.DATABASE_ID, 
-                     'sedes_servicios', 
-                     [ Query.equal('sedes', sedeActual.$id) ]
-                 );
-                 
+                 const res = await databases.listDocuments(TALLER_CONFIG.DATABASE_ID, 'sedes_servicios', [ Query.equal('sedes', sedeActual.$id) ]);
                  const enriquecidos = await Promise.all(res.documents.map(async (item) => {
                      let nombreMostrar = 'Cargando...'; 
                      if (item.servicios) { 
                          try {
-                             const docServicio = await databases.getDocument(
-                                 TALLER_CONFIG.DATABASE_ID, 
-                                 'servicios', 
-                                 item.servicios 
-                             );
+                             const docServicio = await databases.getDocument(TALLER_CONFIG.DATABASE_ID, 'servicios', item.servicios);
                              nombreMostrar = docServicio.nombre;
-                         } catch (err) {
-                             nombreMostrar = '(Servicio eliminado)';
-                         }
+                         } catch (err) { nombreMostrar = '(Servicio eliminado)'; }
                      }
                      return { ...item, nombreMostrar };
                  }));
-
                  setListaServiciosAsignados(enriquecidos);
              } catch (e) { console.error("Error cargando sedes_servicios:", e); }
         }
       } catch (error) { console.error("Error datos:", error); }
   };
 
-  useEffect(() => { cargarDatos(); }, [tabActual, fechaFiltro, sedeActual, filterTallerId]);
+  useEffect(() => { if(!loadingGlobal) cargarDatos(); }, [tabActual, fechaFiltro, sedeActual, filterTallerId, loadingGlobal]);
 
   const getTallerActualId = () => {
       const rel = sedeActual.talleres || sedeActual.taller_id;
@@ -294,64 +263,35 @@ function Dashboard() {
   // --- LÓGICA SERVICIOS ---
   const agregarServicio = async () => {
       let servicioIdFinal = servicioSeleccionado;
-
       if (!servicioIdFinal) return notify("Por favor, selecciona un servicio.", "error");
-
       try {
           if (servicioIdFinal === 'crear_nuevo') {
               const nombreLimpio = nuevoServicioNombre.trim();
               if(!nombreLimpio) return notify("Escribe el nombre del nuevo servicio.", "error");
-
               const existeGlobal = catServiciosGlobal.find(s => s.nombre.toLowerCase() === nombreLimpio.toLowerCase());
-              
               if (existeGlobal) {
                   servicioIdFinal = existeGlobal.$id;
                   notify("ℹ️ El servicio ya existía. Asignándolo...");
               } else {
-                  const nuevoGlobal = await databases.createDocument(
-                      TALLER_CONFIG.DATABASE_ID,
-                      'servicios',
-                      ID.unique(),
-                      { nombre: nombreLimpio, estado: 'activo' }
-                  );
+                  const nuevoGlobal = await databases.createDocument(TALLER_CONFIG.DATABASE_ID, 'servicios', ID.unique(), { nombre: nombreLimpio, estado: 'activo' });
                   servicioIdFinal = nuevoGlobal.$id;
                   setCatServiciosGlobal([...catServiciosGlobal, nuevoGlobal]);
                   notify("✨ Servicio nuevo creado.");
               }
           }
-
           const yaAsignado = listaServiciosAsignados.find(item => item.servicios === servicioIdFinal);
           if (yaAsignado) return notify("Este servicio ya está asignado.", "error");
 
-          await databases.createDocument(
-              TALLER_CONFIG.DATABASE_ID,
-              'sedes_servicios', 
-              ID.unique(),
-              {
-                  sedes: sedeActual.$id,       
-                  servicios: servicioIdFinal
-              }
-          );
-
+          await databases.createDocument(TALLER_CONFIG.DATABASE_ID, 'sedes_servicios', ID.unique(), { sedes: sedeActual.$id, servicios: servicioIdFinal });
           notify("✅ Servicio asignado exitosamente");
-          setServicioSeleccionado('');
-          setNuevoServicioNombre('');
-          cargarDatos();
-
-      } catch(e) {
-          console.error(e);
-          notify("Error al guardar: " + e.message, "error");
-      }
+          setServicioSeleccionado(''); setNuevoServicioNombre(''); cargarDatos();
+      } catch(e) { console.error(e); notify("Error al guardar: " + e.message, "error"); }
   };
 
   const borrarItem = async () => { 
       if(itemToDelete && collectionToDelete) { 
-          try {
-            await databases.deleteDocument(TALLER_CONFIG.DATABASE_ID, collectionToDelete, itemToDelete); 
-            notify("🗑️ Eliminado"); 
-            setModalConfirmOpen(false); 
-            cargarDatos(); 
-          } catch(e) { notify(e.message, "error"); }
+          try { await databases.deleteDocument(TALLER_CONFIG.DATABASE_ID, collectionToDelete, itemToDelete); notify("🗑️ Eliminado"); setModalConfirmOpen(false); cargarDatos(); } 
+          catch(e) { notify(e.message, "error"); }
       } 
   };
   
@@ -359,8 +299,28 @@ function Dashboard() {
   const formatoIntervalo = (h) => { const f = parseInt(h.split(':')[0])+1; return `${h} - ${f < 10 ? '0'+f : f}:00`; };
   const horasDisponibles = useMemo(() => BLOQUES_BASE.filter(h => !listaCuposDB.map(c=>c.hora).includes(h)), [listaCuposDB]);
   const chartDataConfig = { labels: Object.keys(chartDataRaw), datasets: [{ label: 'Vehículos', data: Object.values(chartDataRaw), backgroundColor: '#3498db', borderRadius: 4 }] };
-
   const HEADER_HEIGHT = '70px';
+
+  if (!sedeActual) {
+    return (
+        <div style={{color: '#333', padding: '50px', textAlign: 'center'}}>
+            <h2>⚠️ Sesión no encontrada</h2>
+            <p>Por favor, inicia sesión nuevamente.</p>
+            <button onClick={() => navigate('/login')} style={{padding: '10px 20px', background: '#3498db', color: 'white', border: 'none', borderRadius: '5px', cursor: 'pointer'}}>Ir al Login</button>
+        </div>
+    );
+  }
+
+  // --- LOADER GLOBAL ---
+  if (loadingGlobal) {
+      return (
+          <div style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f4f6f9', flexDirection:'column'}}>
+              <div className="spinner" style={{width:'40px', height:'40px', border:'4px solid #3498db', borderTop:'4px solid transparent', borderRadius:'50%', animation:'spin 1s linear infinite'}}></div>
+              <p style={{marginTop:'15px', color:'#555', fontWeight:'bold'}}>Cargando panel...</p>
+              <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+          </div>
+      );
+  }
 
   return (
     <div className="dashboard-layout">
@@ -472,7 +432,6 @@ function Dashboard() {
                                         <tr key={c.$id}>
                                             <td>{new Date(c.fecha_hora).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</td>
                                             <td>{c.placa}</td>
-                                            {/* CAMBIO AQUÍ: MOSTRAR EL NOMBRE CALCULADO */}
                                             <td>{c.clienteNombre}</td>
                                             <td>{c.servicioNombre}</td>
                                             <td>{c.estado}</td>
