@@ -293,13 +293,18 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 .dashboard-sidebar .hamburger-btn:hover { background-color: rgba(255, 255, 255, 0.1); }
 
 /* Botón flotante móvil (CONFIGURACIÓN IPHONE) */
+/* Botón flotante móvil (CONFIGURACIÓN IPHONE) */
 .mobile-toggle {
   position: fixed;
-  /* Top = Zona segura + 15px de margen que querías */
+  /* Usamos la misma variable que el header + 15px para centrarlo verticalmente */
   top: calc(env(safe-area-inset-top) + 15px); 
   left: 15px; 
   z-index: 200;
-  background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  background: white; 
+  border: 1px solid #ddd; 
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  /* Aseguramos que no tenga transiciones de posición que causen el "salto" visual */
+  transition: background-color 0.2s, opacity 0.2s; 
 }
 
 .mobile-backdrop { display: none; }
@@ -311,19 +316,19 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
     height: 100dvh; /* Altura real móvil */
     /* Empujamos el contenido interno hacia abajo para respetar la Isla Dinámica */
     padding-top: env(safe-area-inset-top); 
+    box-sizing: border-box; /* Importante para que el padding no rompa el ancho */
   }
   
   /* En móvil, CERRADO significa desaparece totalmente */
   .dashboard-sidebar.closed { 
     width: 0; 
-    padding: 0; /* Quitamos el padding para evitar parpadeos */
+    padding: 0; 
     visibility: hidden; 
   }
   
+  /* ... resto del media query igual ... */
   .dashboard-layout { flex-direction: column; }
-  
   .mobile-toggle { display: flex; }
-
   .mobile-backdrop {
     display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(5px);
