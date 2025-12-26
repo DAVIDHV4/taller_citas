@@ -1,11 +1,10 @@
 /* =========================================
-   DASHBOARD.CSS - ESTILOS DEFINITIVOS
-   (Layout + Contenido + Mini Sidebar + Blur)
+   DASHBOARD.CSS - CORREGIDO PARA IPHONE/SAFARI
    ========================================= */
 
 :root {
   --sidebar-width: 260px;
-  --sidebar-collapsed-width: 80px; /* Ancho cuando está "cerrado" en PC */
+  --sidebar-collapsed-width: 80px; 
   --sidebar-bg: #1e1e2d;
   --sidebar-text: #a2a3b7;
   --sidebar-hover: #2b2b40;
@@ -19,8 +18,8 @@
 /* --- 1. LAYOUT GENERAL --- */
 .dashboard-layout {
   display: flex;
-  height: 100vh; /* Fallback para navegadores viejos */
-  height: 100dvh; /* <--- CORRECCIÓN IPHONE: Altura dinámica real */
+  height: 100vh;
+  height: 100dvh; /* Altura dinámica real para móviles */
   width: 100vw;
   overflow: hidden;
   background-color: var(--bg-content);
@@ -35,28 +34,28 @@
   color: #fff;
   display: flex;
   flex-direction: column;
-  transition: width 0.3s ease; /* Animación suave */
+  transition: width 0.3s ease;
   flex-shrink: 0;
   z-index: 100;
   box-shadow: 4px 0 10px rgba(0,0,0,0.1);
-  white-space: nowrap; /* Evita que el texto salte al colapsar */
+  white-space: nowrap;
   overflow: hidden;
+  /* Asegura que el padding no rompa el cálculo de altura */
+  box-sizing: border-box; 
 }
 
 /* --- ESTADO CERRADO (MINI SIDEBAR) EN PC --- */
 .dashboard-sidebar.closed {
-  width: var(--sidebar-collapsed-width); /* Se queda en 80px */
+  width: var(--sidebar-collapsed-width);
 }
 
-/* Ocultar controles y textos cuando está cerrado */
 .dashboard-sidebar.closed .sidebar-controls,
 .dashboard-sidebar.closed .label {
   opacity: 0;
   pointer-events: none;
-  display: none; /* Desaparecen */
+  display: none; 
 }
 
-/* Centrar elementos cuando está cerrado */
 .dashboard-sidebar.closed .sidebar-header-box {
   justify-content: center;
   padding-left: 0;
@@ -68,13 +67,12 @@
 }
 
 .dashboard-sidebar.closed .icon {
-  font-size: 1.2rem; /* Iconos un poco más grandes */
+  font-size: 1.2rem;
   margin-right: 0;
 }
 
 /* --- ELEMENTOS DEL SIDEBAR --- */
 
-/* Header del Sidebar */
 .sidebar-header-box {
   height: var(--header-height);
   display: flex;
@@ -83,7 +81,6 @@
   transition: all 0.3s ease;
 }
 
-/* Controles (Empresa y Sede) */
 .sidebar-controls {
   padding: 0 20px;
   transition: opacity 0.2s ease;
@@ -124,7 +121,7 @@
 /* Menú de Navegación */
 .sidebar-menu {
   flex: 1;
-  padding: 20px 10px; /* Padding lateral reducido para centrado */
+  padding: 20px 10px; 
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -165,7 +162,7 @@
   position: relative;
 }
 
-/* Header Sticky (Usuario) */
+/* Header Sticky (Usuario) - FIX IPHONE */
 .top-bar-sticky {
   height: var(--header-height);
   background: rgba(255, 255, 255, 0.9);
@@ -177,6 +174,10 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   flex-shrink: 0;
   z-index: 50;
+  /* Añadimos padding extra arriba para evitar la isla dinámica en el contenido principal */
+  padding-top: env(safe-area-inset-top); 
+  /* Ajustamos la altura total para que no quede gigante */
+  height: calc(var(--header-height) + env(safe-area-inset-top)); 
 }
 
 /* Contenedor Scrollable */
@@ -184,6 +185,8 @@
   flex: 1;
   overflow-y: auto;
   padding: 30px;
+  /* Padding inferior seguro para la barra de inicio del iPhone */
+  padding-bottom: calc(30px + env(safe-area-inset-bottom));
 }
 
 /* --- 4. ESTILOS ESPECÍFICOS DE LAS VISTAS --- */
@@ -254,7 +257,6 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 
 /* --- 5. EXTRAS Y COMPONENTES --- */
 
-/* Notificaciones Toast (Centradas arriba) */
 .notification-toast {
   position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
   z-index: 9999; padding: 12px 24px; border-radius: 8px; font-weight: 600; color: white;
@@ -264,7 +266,6 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 .notification-toast.error { background-color: #e74c3c; }
 @keyframes slideDown { from { top: -50px; opacity: 0; } to { top: 20px; opacity: 1; } }
 
-/* Modales */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 1000;
@@ -277,7 +278,7 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 .modal-buttons { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .btn-modal-cancel { background: #ecf0f1; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
 
-/* --- BOTONES DEL MENÚ (UNIFICADOS) --- */
+/* --- BOTONES DEL MENÚ --- */
 .hamburger-btn,
 .mobile-toggle {
   width: 40px; height: 40px; padding: 0;
@@ -288,40 +289,41 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 .hamburger-btn:hover,
 .mobile-toggle:hover { background-color: rgba(0, 0, 0, 0.05); }
 
-/* Ajuste específico para Sidebar oscuro */
 .dashboard-sidebar .hamburger-btn { color: #ffffff; }
 .dashboard-sidebar .hamburger-btn:hover { background-color: rgba(255, 255, 255, 0.1); }
 
-/* Botón flotante solo para móvil */
+/* Botón flotante móvil (CONFIGURACIÓN IPHONE) */
 .mobile-toggle {
-  position: fixed; top: 15px; left: 15px; z-index: 200;
+  position: fixed;
+  /* Top = Zona segura + 15px de margen que querías */
+  top: calc(env(safe-area-inset-top) + 15px); 
+  left: 15px; 
+  z-index: 200;
   background: white; border: 1px solid #ddd; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-/* --- EFECTO BLUR (MÓVIL) --- */
 .mobile-backdrop { display: none; }
 
 /* --- RESPONSIVE Y MOBILE BEHAVIOR --- */
 @media (max-width: 768px) {
   .dashboard-sidebar { 
     position: absolute; 
-    height: 100%; 
-    height: 100dvh; /* <--- CORRECCIÓN IPHONE: Altura menú */
+    height: 100dvh; /* Altura real móvil */
+    /* Empujamos el contenido interno hacia abajo para respetar la Isla Dinámica */
+    padding-top: env(safe-area-inset-top); 
   }
   
-  /* En móvil, CERRADO significa desaparece totalmente sin ocupar espacio visual */
+  /* En móvil, CERRADO significa desaparece totalmente */
   .dashboard-sidebar.closed { 
     width: 0; 
-    padding: 0; /* <--- CORRECCIÓN: Quita espacio interno */
-    visibility: hidden; /* <--- CORRECCIÓN: Evita el renderizado aplastado */
+    padding: 0; /* Quitamos el padding para evitar parpadeos */
+    visibility: hidden; 
   }
   
   .dashboard-layout { flex-direction: column; }
   
-  /* Botón flotante visible en móvil */
   .mobile-toggle { display: flex; }
 
-  /* Activar Blur solo en móvil */
   .mobile-backdrop {
     display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     background-color: rgba(0, 0, 0, 0.3); backdrop-filter: blur(5px);
@@ -331,7 +333,6 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 }
 
 @media (min-width: 769px) {
-  /* En PC el botón flotante no es necesario porque siempre hay mini-sidebar o sidebar */
   .mobile-toggle { display: none !important; }
 }
 
