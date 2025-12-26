@@ -9,22 +9,18 @@ import '../estilos/Formulario.css'
 function FormularioReserva() {
   const navigate = useNavigate();
   
-  // --- ESTADOS DE DATOS ---
   const [listaTalleres, setListaTalleres] = useState([]);
   const [listaSedesTotal, setListaSedesTotal] = useState([]); 
   const [servicios, setServicios] = useState([]);
   const [listaRelaciones, setListaRelaciones] = useState([]); 
 
-  // --- ESTADOS DEL FORMULARIO ---
   const [pasoActual, setPasoActual] = useState(1);
   const [loading, setLoading] = useState(false);
   
-  // Reprogramación
   const [citasDetectadas, setCitasDetectadas] = useState([]);
   const [buscandoPlaca, setBuscandoPlaca] = useState(false);
   const [citaExistenteId, setCitaExistenteId] = useState(null); 
 
-  // FORMULARIO
   const [formData, setFormData] = useState({
     nombre: '',
     apellido: '',
@@ -33,14 +29,13 @@ function FormularioReserva() {
     telefono: '',
     placa: '',
     kilometraje: '',
-    ciudad: '', // <--- NUEVO CAMPO
+    ciudad: '', 
     tipo_requerimiento: '', 
     sede: '', 
     observaciones: '',
     asistencia_ruta: 'NO',
   });
 
-  // --- ESTADOS FECHA Y HORA ---
   const [fechaCalendario, setFechaCalendario] = useState(new Date());
   const [fechaSeleccionada, setFechaSeleccionada] = useState(new Date().toLocaleDateString('en-CA'));
   const [horaSeleccionada, setHoraSeleccionada] = useState('');
@@ -49,11 +44,9 @@ function FormularioReserva() {
 
   const BLOQUES_BASE = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
-  // --- 1. CARGA INICIAL DE DATOS ---
   useEffect(() => {
     const cargarDatos = async () => {
       try {
-        console.log("🔄 Iniciando carga de datos...");
         const [resTalleres, resSedes, resServicios, resRelaciones] = await Promise.all([
             databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_TALLERES || 'talleres', [Query.limit(100), Query.orderAsc('nombre')]),
             databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, [Query.limit(100)]),
@@ -61,24 +54,21 @@ function FormularioReserva() {
             databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_RELACION_SEDE_SERVICIO, [Query.limit(1000)])
         ]);
 
-        console.log(`✅ Datos cargados: ${resRelaciones.documents.length} relaciones.`);
         setListaTalleres(resTalleres.documents);
         setListaSedesTotal(resSedes.documents);
         setServicios(resServicios.documents);
         setListaRelaciones(resRelaciones.documents);
       } catch (error) { 
-        console.error("❌ Error cargando datos:", error); 
-        alert("Error de conexión. Revisa la consola.");
+        console.error(error); 
+        alert("Error de conexión.");
       }
     };
     cargarDatos();
   }, []); 
 
-  // --- LIMPIEZA ---
   useEffect(() => { setHoraSeleccionada(''); }, [formData.sede, fechaSeleccionada]);
   useEffect(() => { setFormData(prev => ({ ...prev, sede: '' })); }, [formData.tipo_requerimiento]);
 
-  // --- 2. CÁLCULO DISPONIBILIDAD ---
   useEffect(() => {
     if (!formData.sede || pasoActual !== 2) {
         setHorariosDisponibles([]);
@@ -118,12 +108,11 @@ function FormularioReserva() {
             return capacidadMaxima > 0 && ocupados < capacidadMaxima;
         });
         setHorariosDisponibles(disponibles);
-      } catch (error) { console.error("Error calculando:", error); } finally { setCargandoHorarios(false); }
+      } catch (error) { console.error(error); } finally { setCargandoHorarios(false); }
     };
     calcularDisponibilidad();
   }, [fechaSeleccionada, formData.sede, pasoActual, citaExistenteId]);
 
-  // --- MANEJADORES ---
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -153,7 +142,7 @@ function FormularioReserva() {
 
       let nombreRecuperado = cita.nombre || '';
       let apellidoRecuperado = cita.apellido || '';
-      if (!nombreRecuperado && cita.cliente) { // Fallback de lectura solo si existe
+      if (!nombreRecuperado && cita.cliente) { 
           const partes = cita.cliente.split(' ');
           nombreRecuperado = partes[0];
           if (!apellidoRecuperado) apellidoRecuperado = partes.slice(1).join(' ');
@@ -167,7 +156,7 @@ function FormularioReserva() {
           empresa: cita.empresa || '', 
           placa: cita.placa,
           kilometraje: cita.kilometraje || '',
-          ciudad: cita.ciudad || '', // RECUPERAR CIUDAD
+          ciudad: cita.ciudad || '', 
           tipo_requerimiento: servicioId || '', 
           sede: sedeId || '',
           observaciones: cita.observaciones || '', 
@@ -205,10 +194,8 @@ function FormularioReserva() {
         sede: formData.sede,            
         servicio: formData.tipo_requerimiento, 
         
-        // --- CLIENTE (SOLO CAMPOS NUEVOS) ---
         nombre: formData.nombre,
         apellido: formData.apellido,
-        // cliente: ... <--- ELIMINADO PARA EVITAR ERROR
         
         email_cliente: formData.correo,
         telefono: formData.telefono,
@@ -222,8 +209,6 @@ function FormularioReserva() {
         observaciones: formData.observaciones
       };
 
-      console.log("Guardando:", datosParaGuardar);
-
       if (citaExistenteId) {
           await databases.updateDocument(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_CITAS, citaExistenteId, datosParaGuardar);
           alert("✅ Cita Reprogramada Correctamente");
@@ -233,14 +218,13 @@ function FormularioReserva() {
       }
       navigate(0); 
     } catch (error) { 
-      console.error("ERROR AL GUARDAR:", error);
+      console.error(error);
       alert("Error: " + error.message); 
     } finally { 
       setLoading(false); 
     }
   };
 
-  // --- RENDERIZADO DEL SELECT DE SEDES (FILTRO PLURAL) ---
   const renderSedesOptions = () => {
     if (listaTalleres.length === 0) return <option disabled>Cargando empresas...</option>;
     if (!formData.tipo_requerimiento) return <option disabled>-- Selecciona un servicio primero --</option>;
@@ -275,7 +259,8 @@ function FormularioReserva() {
     });
   };
 
-  const nombreSede = listaSedesTotal.find(s => s.$id === formData.sede)?.nombre;
+  const sedeSeleccionadaObj = listaSedesTotal.find(s => s.$id === formData.sede);
+  const nombreSede = sedeSeleccionadaObj?.nombre;
   const nombreServicio = servicios.find(s => s.$id === formData.tipo_requerimiento)?.nombre;
 
   return (
@@ -296,7 +281,6 @@ function FormularioReserva() {
 
         <form className="form-content" onSubmit={(e) => e.preventDefault()}>
           
-          {/* PASO 1 */}
           {pasoActual === 1 && (
             <div className="paso-animado">
               <h3 className="titulo-seccion">{citaExistenteId ? 'Verifica tus Datos' : 'Datos del Solicitante'}</h3>
@@ -316,12 +300,10 @@ function FormularioReserva() {
             </div>
           )}
 
-          {/* PASO 2 */}
           {pasoActual === 2 && (
             <div className="paso-animado">
               <h3 className="titulo-seccion">Detalles del Servicio</h3>
               <div className="bloque-formulario">
-                  {/* CUADRÍCULA 2x2 */}
                   <div className="grid-2-col">
                       <div className="input-group">
                         <label>Placa *</label>
@@ -381,6 +363,18 @@ function FormularioReserva() {
                           {renderSedesOptions()}
                       </select>
                   </div>
+                  
+                  {formData.sede && sedeSeleccionadaObj && (
+                    <div style={{ marginTop: '1rem', width: '100%', height: '300px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #ddd' }}>
+                       <iframe 
+                          title="Mapa Sede"
+                          width="100%" 
+                          height="100%" 
+                          frameBorder="0" 
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(sedeSeleccionadaObj.direccion || sedeSeleccionadaObj.nombre)}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                       ></iframe>
+                    </div>
+                  )}
               </div>
 
               <div className="grid-2-col">
@@ -396,7 +390,6 @@ function FormularioReserva() {
                          </div>
                      )}
                   </div>
-                  {/* OBSERVACIONES FIXED */}
                   <div className="input-group">
                      <label>Observaciones</label>
                      <textarea 
@@ -436,7 +429,6 @@ function FormularioReserva() {
             </div>
           )}
 
-          {/* PASO 3 */}
           {pasoActual === 3 && (
             <div className="paso-animado">
               <h3 className="titulo-seccion">{citaExistenteId ? 'Confirma Reprogramación' : 'Confirma Reserva'}</h3>

@@ -1,5 +1,6 @@
-import { HashRouter, Routes, Route } from 'react-router-dom'
-import MapaSedes from './paginas/MapaSedes'
+// CAMBIO IMPORTANTE: Usamos BrowserRouter en lugar de HashRouter
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import MapaSedes from './paginas/MapaSedes' // Si lo usas
 import FormularioReserva from './paginas/FormularioReserva'
 import Login from './paginas/Login'
 import Dashboard from './paginas/Dashboard'
@@ -9,7 +10,7 @@ import './App.css'
 
 function App() {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <Routes>
         <Route path="/" element={<FormularioReserva />} />
         <Route path="/login" element={<Login />} />
@@ -17,7 +18,7 @@ function App() {
         <Route path="/trabajador/dashboard" element={<DashboardTrabajador />} />
         <Route path='/registro' element={<Registro/>}/>
       </Routes>
-    </HashRouter>
+    </BrowserRouter>
   )
 }
 
