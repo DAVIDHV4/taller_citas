@@ -19,7 +19,8 @@
 /* --- 1. LAYOUT GENERAL --- */
 .dashboard-layout {
   display: flex;
-  height: 100vh;
+  height: 100vh; /* Fallback para navegadores viejos */
+  height: 100dvh; /* <--- CORRECCIÓN IPHONE: Altura dinámica real */
   width: 100vw;
   overflow: hidden;
   background-color: var(--bg-content);
@@ -302,10 +303,18 @@ h3 { color: #34495e; margin: 0 0 10px 0; font-size: 1.1rem; border-bottom: 2px s
 
 /* --- RESPONSIVE Y MOBILE BEHAVIOR --- */
 @media (max-width: 768px) {
-  .dashboard-sidebar { position: absolute; height: 100%; }
+  .dashboard-sidebar { 
+    position: absolute; 
+    height: 100%; 
+    height: 100dvh; /* <--- CORRECCIÓN IPHONE: Altura menú */
+  }
   
-  /* En móvil, CERRADO significa ANCHO 0 (Desaparece, no mini-sidebar) */
-  .dashboard-sidebar.closed { width: 0; }
+  /* En móvil, CERRADO significa desaparece totalmente sin ocupar espacio visual */
+  .dashboard-sidebar.closed { 
+    width: 0; 
+    padding: 0; /* <--- CORRECCIÓN: Quita espacio interno */
+    visibility: hidden; /* <--- CORRECCIÓN: Evita el renderizado aplastado */
+  }
   
   .dashboard-layout { flex-direction: column; }
   
