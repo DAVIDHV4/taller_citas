@@ -20,7 +20,7 @@ function Dashboard() {
   });
 
   // --- ESTADOS ---
-  const [loadingGlobal, setLoadingGlobal] = useState(true); // <--- NUEVO: Para evitar el descuadre inicial
+  const [loadingGlobal, setLoadingGlobal] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const [tabActual, setTabActual] = useState('resumen'); 
   const [usuarioNombre, setUsuarioNombre] = useState('Cargando...'); 
@@ -71,11 +71,10 @@ function Dashboard() {
   const notify = (msg, type = 'success') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 3000); };
   const BLOQUES_BASE = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 
-  // --- CARGAS DE DATOS INICIALES ---
+  // --- CARGAS DE DATOS ---
   useEffect(() => {
     const init = async () => {
         try {
-            // Verificar sesión primero
             if (!sedeActual) { setLoadingGlobal(false); return; }
 
             const user = await account.get();
@@ -85,7 +84,6 @@ function Dashboard() {
                 if(res.documents.length>0) { setUsuarioNombre(res.documents[0].Nombre); pid=res.documents[0].$id; } else { setUsuarioNombre(user.name); }
             } catch { setUsuarioNombre(user.name); }
 
-            // Cargas paralelas para velocidad
             const [rt, rs, globalServ] = await Promise.all([
                 databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_TALLERES || 'talleres', [Query.limit(100), Query.orderAsc('nombre')]).catch(()=>({documents:[]})),
                 databases.listDocuments(TALLER_CONFIG.DATABASE_ID, TALLER_CONFIG.COLLECTION_SEDES, [Query.limit(100)]).catch(()=>({documents:[]})),
@@ -104,7 +102,6 @@ function Dashboard() {
         } catch(e){
             console.error(e);
         } finally {
-            // AQUÍ ESTÁ LA MAGIA: Soltamos el loading solo cuando todo está listo
             setLoadingGlobal(false);
         }
     }; 
@@ -311,7 +308,6 @@ function Dashboard() {
     );
   }
 
-  // --- LOADER GLOBAL ---
   if (loadingGlobal) {
       return (
           <div style={{height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', background:'#f4f6f9', flexDirection:'column'}}>
@@ -415,8 +411,10 @@ function Dashboard() {
                             <div className="metric-card blue"><h3>Citas Hoy</h3><p className="metric-value">{metrics.citasHoy}</p></div>
                             <div className="metric-card purple"><h3>Personal Global</h3><p className="metric-value">{metrics.personalTotal}</p></div>
                         </div>
-                        <div className="chart-container-wrapper" style={{marginTop:'30px', background:'white', padding:'20px', borderRadius:'8px', boxShadow:'0 2px 5px rgba(0,0,0,0.05)'}}>
-                            <Bar options={{ responsive: true }} data={{ labels: Object.keys(chartDataRaw), datasets: [{ label: 'Vehículos', data: Object.values(chartDataRaw), backgroundColor: '#3699ff', borderRadius: 4 }] }} />
+                        {/* ⭐ FIX VISUAL DEL GRÁFICO (height + relative) ⭐ */}
+                        <div className="chart-container-wrapper" style={{marginTop:'30px', background:'white', padding:'20px', borderRadius:'8px', boxShadow:'0 2px 5px rgba(0,0,0,0.05)', position: 'relative', height: '400px'}}>
+                            {/* ⭐ FIX CHART.JS (maintainAspectRatio: false) ⭐ */}
+                            <Bar options={{ responsive: true, maintainAspectRatio: false }} data={{ labels: Object.keys(chartDataRaw), datasets: [{ label: 'Vehículos', data: Object.values(chartDataRaw), backgroundColor: '#3699ff', borderRadius: 4 }] }} />
                         </div>
                     </div>
                 )}
@@ -466,7 +464,7 @@ function Dashboard() {
                     </div>
                 )}
 
-                {/* --- VISTA SERVICIOS --- */}
+                {/* --- VISTA SERVICIOS (CON SELECT Y OPCIÓN CREAR NUEVO) --- */}
                 {tabActual === 'servicios' && (
                     <div className="vista-servicios">
                         <h2>Servicios de la Sede</h2>
@@ -475,7 +473,7 @@ function Dashboard() {
                             <div className="input-group" style={{minWidth: '250px', flex: 3}}>
                                 <label>Seleccionar Servicio</label>
                                 <select 
-                                    className="custom-select-dark" 
+                                    className="custom-select-dark" // Reusamos estilo o creamos uno si prefieres
                                     style={{background:'white', color:'#333', border:'1px solid #ddd'}}
                                     value={servicioSeleccionado}
                                     onChange={(e) => setServicioSeleccionado(e.target.value)}
@@ -544,10 +542,7 @@ function Dashboard() {
                         </div>
                         <div style={{display:'flex', gap:'10px', marginBottom:'20px', background:'white', padding:'10px', borderRadius:'8px', border:'1px solid #eee'}}>
                             <input type="text" placeholder="🔍 Buscar por nombre o email..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{flex:1, padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}} />
-                            <select value={filterTallerId} onChange={e => setFilterTallerId(e.target.value)} style={{width:'200px', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}>
-                                <option value="">🏢 Todas las Empresas</option>
-                                {listaTalleres.map(t => <option key={t.$id} value={t.$id}>{t.nombre}</option>)}
-                            </select>
+                            <select value={filterTallerId} onChange={e => setFilterTallerId(e.target.value)} style={{width:'200px', padding:'8px', border:'1px solid #ddd', borderRadius:'4px'}}><option value="">🏢 Todas las Empresas</option>{listaTalleres.map(t => <option key={t.$id} value={t.$id}>{t.nombre}</option>)}</select>
                         </div>
                         <div className="lista-usuarios-grid">
                             {listaPersonalFiltrada.length === 0 && <p className="vacio-msg">No se encontraron empleados.</p>}
