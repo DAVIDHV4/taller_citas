@@ -197,7 +197,7 @@ function Login() {
                         <span style={{color: '#3498db', cursor: 'pointer', fontWeight: 'bold'}} onClick={() => navigate('/registro')}>Activa tu cuenta aquí</span>
                     </div>
                 </form>
-                <button className="btn-volver-mapa" onClick={() => navigate('/')} style={{marginTop:'10px'}}>← Volver al Mapa</button>
+                <button className="btn-volver-mapa" onClick={() => navigate('/')} style={{marginTop:'10px'}}>← Volver</button>
             </>
         ) : (
             <div className="seleccion-sede">
