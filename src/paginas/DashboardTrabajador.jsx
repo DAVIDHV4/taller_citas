@@ -16,6 +16,9 @@ function DashboardTrabajador() {
   // --- ESTADOS DE DATOS ---
   const [citasHoy, setCitasHoy] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(false);
+  
+  // NUEVO: Estado para el nombre de la empresa
+  const [nombreEmpresa, setNombreEmpresa] = useState('Cargando...');
 
   // 1. SEGURIDAD Y CARGA INICIAL
   useEffect(() => {
@@ -27,7 +30,40 @@ function DashboardTrabajador() {
     setTimeout(() => setLoadingGlobal(false), 500);
   }, [sede, navigate]);
 
-  // 2. CARGAR CITAS
+  // 2. NUEVO: OBTENER NOMBRE DE LA EMPRESA (TALLER)
+  useEffect(() => {
+      const fetchEmpresa = async () => {
+          if (!sede) return;
+          try {
+              // Revisamos si la relación viene como objeto o como ID
+              const relacion = sede.talleres || sede.taller_id;
+              
+              if (relacion) {
+                  // Si ya tenemos el objeto con nombre, lo usamos directo
+                  if (typeof relacion === 'object' && relacion.nombre) {
+                      setNombreEmpresa(relacion.nombre);
+                  } else {
+                      // Si es solo un ID (o un objeto incompleto), consultamos la base de datos
+                      const tId = (typeof relacion === 'object') ? relacion.$id : relacion;
+                      const docTaller = await databases.getDocument(
+                          TALLER_CONFIG.DATABASE_ID,
+                          TALLER_CONFIG.COLLECTION_TALLERES || 'talleres',
+                          tId
+                      );
+                      setNombreEmpresa(docTaller.nombre);
+                  }
+              } else {
+                  setNombreEmpresa('Sin Empresa Asignada');
+              }
+          } catch (e) {
+              console.error("Error buscando empresa:", e);
+              setNombreEmpresa('Empresa');
+          }
+      };
+      fetchEmpresa();
+  }, [sede]);
+
+  // 3. CARGAR CITAS
   const cargarCitas = async () => {
     try {
         setLoadingDatos(true);
@@ -121,23 +157,38 @@ function DashboardTrabajador() {
             </div>
 
             <div className="sidebar-controls">
+                {/* --- NUEVO: EMPRESA --- */}
+                <div className="control-group">
+                    <span className="control-label">Empresa</span>
+                    <div style={{
+                        color:'white', 
+                        fontWeight:'bold', 
+                        fontSize:'1.1rem', // Un poco más grande que la sede
+                        marginBottom: '5px',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                    }}>
+                        {nombreEmpresa}
+                    </div>
+                </div>
+
+                {/* --- SEDE ACTUAL --- */}
                 <div className="control-group">
                     <span className="control-label">Sede Actual</span>
-                    {/* --- CORRECCIÓN AQUÍ: Estilos para cortar el texto largo --- */}
                     <div 
-                        title={sede.direccion || sede.nombre} // Tooltip para ver el nombre completo al pasar el mouse
+                        title={sede.direccion || sede.nombre} 
                         style={{
                             color:'white', 
-                            fontWeight:'bold', 
+                            fontWeight:'normal', // Normal para diferenciar de la empresa
                             fontSize:'0.9rem', 
                             padding:'10px', 
                             background:'rgba(255,255,255,0.1)', 
                             borderRadius:'6px',
-                            // FIX DE DESBORDE:
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
-                            maxWidth: '100%' // Asegura que no crezca más que el padre
+                            maxWidth: '100%'
                         }}
                     >
                         {sede.direccion || sede.nombre}
